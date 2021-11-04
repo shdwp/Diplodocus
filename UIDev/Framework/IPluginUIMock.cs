@@ -1,7 +1,7 @@
-﻿using ImGuiScene;
-using System;
+﻿using System;
+using ImGuiScene;
 
-namespace UIDev
+namespace UIDev.Framework
 {
     interface IPluginUIMock : IDisposable
     {

@@ -1,10 +1,10 @@
-﻿using ImGuiNET;
-using ImGuiScene;
-using System.Numerics;
+﻿using System.Numerics;
 using System.Runtime.InteropServices;
+using ImGuiNET;
+using ImGuiScene;
 using static SDL2.SDL;
 
-namespace UIDev
+namespace UIDev.Framework
 {
     class UIBootstrap
     {

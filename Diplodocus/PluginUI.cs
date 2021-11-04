@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Numerics;
+using Dalamud.Logging;
+using Dalamud.Plugin;
+using Diplodocus.Lib.Automaton;
 using ImGuiNET;
 
 namespace Diplodocus
@@ -13,7 +16,8 @@ namespace Diplodocus
             public Action onDraw;
         }
 
-        private Configuration configuration;
+        private readonly Configuration          _configuration;
+        private readonly DalamudPluginInterface _pluginInterface;
 
         private bool _visible = false;
         public bool Visible
@@ -31,22 +35,29 @@ namespace Diplodocus
 
         private List<Tab> _tabs = new();
 
-        public PluginUI(Configuration configuration)
+        public PluginUI(Configuration configuration, DalamudPluginInterface pluginInterface)
         {
-            this.configuration = configuration;
+            _configuration = configuration;
+            _pluginInterface = pluginInterface;
+
+            _pluginInterface.UiBuilder.Draw += Draw;
+            _pluginInterface.UiBuilder.OpenConfigUi += OpenConfiguration;
         }
 
         public void Dispose()
         {
             _tabs.Clear();
+
+            _pluginInterface.UiBuilder.OpenConfigUi -= OpenConfiguration;
+            _pluginInterface.UiBuilder.Draw -= Draw;
         }
 
-        public void AddTab(string name, Action onDraw)
+        public void AddComponent<T>(T ui) where T: IAutomaton
         {
             _tabs.Add(new Tab
             {
-                name = name,
-                onDraw = onDraw,
+                name = ui.GetName(),
+                onDraw = ui.DrawUI,
             });
         }
 
@@ -96,6 +107,11 @@ namespace Diplodocus
             {
             }
             ImGui.End();
+        }
+
+        private void OpenConfiguration()
+        {
+            _settingsVisible = true;
         }
     }
 }

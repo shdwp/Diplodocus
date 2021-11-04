@@ -1,67 +1,21 @@
 namespace Diplodocus.Universalis
 {
-    /// <summary>
-    /// Market board data for a given item.
-    /// </summary>
     public class MarketBoardData
     {
-        /// <summary>
-        /// Gets or sets last time price was checked.
-        /// </summary>
-        public long LastCheckTime { get; set; }
+        public struct Listing
+        {
+            public double price;
+            public int    amount;
+            public string worldName;
+        }
 
-        /// <summary>
-        /// Gets or sets last time price was checked.
-        /// </summary>
-        public long LastUploadTime { get; set; }
+        public long lastCheckTime;
+        public long lastUploadTime;
 
-        /// <summary>
-        /// Gets or sets the average price (NQ).
-        /// </summary>
-        public double? AveragePriceNQ { get; set; }
+        public double? minimumPrice;
+        public double? averagePrice;
+        public double? averageSoldPerDay;
 
-        /// <summary>
-        /// Gets or sets the average price (HQ).
-        /// </summary>
-        public double? AveragePriceHQ { get; set; }
-
-        /// <summary>
-        /// Gets or sets the current average price (NQ).
-        /// </summary>
-        public double? CurrentAveragePriceNQ { get; set; }
-
-        /// <summary>
-        /// Gets or sets the current average price (HQ).
-        /// </summary>
-        public double? CurrentAveragePriceHQ { get; set; }
-
-        /// <summary>
-        /// Gets or sets the minimum price (NQ).
-        /// </summary>
-        public double? MinimumPriceNQ { get; set; }
-
-        /// <summary>
-        /// Gets or sets the minimum price (HQ).
-        /// </summary>
-        public double? MinimumPriceHQ { get; set; }
-
-        /// <summary>
-        /// Gets or sets the maximum price (NQ).
-        /// </summary>
-        public double? MaximumPriceNQ { get; set; }
-
-        /// <summary>
-        /// Gets or sets the maximum price (HQ).
-        /// </summary>
-        public double? MaximumPriceHQ { get; set; }
-
-        /// <summary>
-        /// Gets or sets the current minimum price.
-        /// </summary>
-        public double? CurrentMinimumPrice { get; set; }
-
-        public double? SaleVelocityNQ { get; set; }
-
-        public double? SaleVelocityHQ { get; set; }
+        public Listing[]? listings;
     }
 }
