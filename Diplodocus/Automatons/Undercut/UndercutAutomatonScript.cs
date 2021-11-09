@@ -3,8 +3,11 @@ using System.Threading.Tasks;
 using Dalamud.Data;
 using Dalamud.Game.Gui;
 using Dalamud.Logging;
+using Diplodocus.Automatons.InventorySell;
 using Diplodocus.Lib.Automaton;
+using Diplodocus.Lib.GameApi;
 using Diplodocus.Lib.GameControl;
+using Diplodocus.Universalis;
 using Lumina.Excel;
 using Lumina.Excel.GeneratedSheets;
 
@@ -14,22 +17,29 @@ namespace Diplodocus.Automatons.Undercut
     {
         public class UndercutSettings : BaseAutomatonScriptSettings
         {
-            public Action<Item, long> OnPriceUpdated;
+            public bool  useCrossworld;
+            public float minimumFraction;
+
+            public Action<Item, long, long, string> OnPriceUpdated;
         }
 
         private readonly GameGui             _gameGui;
+        private readonly UniversalisClient   _universalis;
         private readonly HIDControl          _hidControl;
         private readonly RetainerSellControl _retainerSellControl;
+        private readonly RetainerControl     _retainerControl;
         private readonly AtkControl          _atkControl;
 
         private ExcelSheet<Item> _itemSheet;
 
-        public UndercutAutomatonScript(HIDControl hidControl, RetainerSellControl retainerSellControl, AtkControl atkControl, DataManager dataManager, GameGui gameGui)
+        public UndercutAutomatonScript(HIDControl hidControl, RetainerSellControl retainerSellControl, AtkControl atkControl, DataManager dataManager, GameGui gameGui, RetainerControl retainerControl, UniversalisClient universalis)
         {
             _hidControl = hidControl;
             _retainerSellControl = retainerSellControl;
             _atkControl = atkControl;
             _gameGui = gameGui;
+            _retainerControl = retainerControl;
+            _universalis = universalis;
             _itemSheet = dataManager.GameData.GetExcelSheet<Item>();
         }
 
@@ -54,7 +64,7 @@ namespace Diplodocus.Automatons.Undercut
         {
             await _hidControl.CursorDown();
 
-            var amount = _retainerSellControl.MarketItemCount;
+            var amount = _retainerControl.CurrentMarketItemCount;
             for (var i = 0; i < amount; i++)
             {
                 if (!_run)
@@ -75,6 +85,12 @@ namespace Diplodocus.Automatons.Undercut
                 if (item == null)
                 {
                     PluginLog.Debug($"Failed to find item {_gameGui.HoveredItem} in item sheet!");
+                    continue;
+                }
+
+                var data = await _universalis.GetDCData(_gameGui.HoveredItem);
+                if (data == null || data.minimumPrice == 0)
+                {
                     continue;
                 }
 
@@ -110,11 +126,24 @@ namespace Diplodocus.Automatons.Undercut
 
                 var newPrice = (itemHq ? offeringsData.minimumPriceHQ : offeringsData.minimumPriceNQ) - 1;
                 var currentPrice = _retainerSellControl.GetAskingPrice();
+                var priceSource = "world min";
 
-                if (newPrice != currentPrice)
+                if (_settings.useCrossworld)
+                {
+                    InventorySellAutomatonScript.CalculatePrice(
+                        newPrice,
+                        (long)data.minimumPrice,
+                        (long)data.averagePrice,
+                        _settings.minimumFraction,
+                        out newPrice,
+                        out priceSource
+                    );
+                }
+
+                if (newPrice < currentPrice)
                 {
                     _retainerSellControl.SetAskingPrice(newPrice);
-                    _settings.OnPriceUpdated?.Invoke(item, newPrice);
+                    _settings.OnPriceUpdated?.Invoke(item, newPrice, (long)data.averagePrice, priceSource);
                 }
 
                 await _hidControl.CursorConfirm();

@@ -7,14 +7,19 @@ namespace Diplodocus.Universalis
             public double price;
             public int    amount;
             public string worldName;
+            public bool   hq;
         }
 
         public long lastCheckTime;
         public long lastUploadTime;
 
         public double? minimumPrice;
-        public double? averagePrice;
+        public double? averageMinimumPrice;
         public double? averageSoldPerDay;
+
+        public double? averagePrice;
+        public double? averagePriceHQ;
+        public double? averagePriceNQ;
 
         public Listing[]? listings;
     }

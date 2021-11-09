@@ -35,6 +35,7 @@ namespace Diplodocus.Automatons.MacroCrafting
         private void OnItemCrafted()
         {
             _log.Append("Item crafted succesfully.\n");
+            _amount--;
         }
     }
 }

@@ -4,6 +4,7 @@ using Dalamud.Data;
 using Dalamud.Game.Gui;
 using Dalamud.Logging;
 using Diplodocus.Lib.Automaton;
+using Diplodocus.Lib.GameApi;
 using Diplodocus.Lib.GameApi.Inventory;
 using Diplodocus.Lib.GameControl;
 using Diplodocus.Universalis;
@@ -16,12 +17,14 @@ namespace Diplodocus.Automatons.InventorySell
     {
         public class Settings : BaseAutomatonScriptSettings
         {
-            public int minimumPrice;
-            public int itemCount;
+            public int   minimumPrice;
+            public int   itemCount;
+            public float minimumFraction;
+            public bool  useCrossworld;
 
-            public Action<int, long>    OnResult;
-            public Action<Item, string> OnItemSkipped;
-            public Action<Item, long>   OnItemSelling;
+            public Action<int, long>                OnResult;
+            public Action<Item, string>             OnItemSkipped;
+            public Action<Item, long, long, string> OnItemSelling;
         }
 
         private readonly GameGui             _gameGui;
@@ -31,10 +34,11 @@ namespace Diplodocus.Automatons.InventorySell
         private readonly HIDControl          _hidControl;
         private readonly AtkControl          _atkControl;
         private readonly RetainerSellControl _retainerSellControl;
+        private readonly RetainerControl     _retainerControl;
 
         private ExcelSheet<Item> _itemSheet;
 
-        public InventorySellAutomatonScript(UniversalisClient universalis, HIDControl hidControl, RetainerSellControl retainerSellControl, AtkControl atkControl, InventoryLib inventoryLib, GameGui gameGui, DataManager dataManager)
+        public InventorySellAutomatonScript(UniversalisClient universalis, HIDControl hidControl, RetainerSellControl retainerSellControl, AtkControl atkControl, InventoryLib inventoryLib, GameGui gameGui, DataManager dataManager, RetainerControl retainerControl)
         {
             _universalis = universalis;
             _hidControl = hidControl;
@@ -43,6 +47,7 @@ namespace Diplodocus.Automatons.InventorySell
             _inventoryLib = inventoryLib;
             _gameGui = gameGui;
             _dataManager = dataManager;
+            _retainerControl = retainerControl;
 
             _itemSheet = _dataManager.GameData.GetExcelSheet<Item>();
         }
@@ -93,7 +98,7 @@ namespace Diplodocus.Automatons.InventorySell
                     continue;
                 }
 
-                var data = await _universalis.GetWorldData(_gameGui.HoveredItem);
+                var data = await _universalis.GetDCData(_gameGui.HoveredItem);
                 if (data == null || data.minimumPrice == 0)
                 {
                     _settings.OnItemSkipped?.Invoke(item, "no market data");
@@ -114,7 +119,7 @@ namespace Diplodocus.Automatons.InventorySell
                 }
 
                 var totalPrice = data.minimumPrice * amount;
-                PluginLog.Debug($"Price for item {item.Name} - {totalPrice} ({data.minimumPrice}, amount {amount}");
+                PluginLog.Debug($"Price for item {item.Name} - {totalPrice} ({data.minimumPrice}, amount {amount})");
 
                 if (totalPrice < _settings.minimumPrice)
                 {
@@ -160,7 +165,20 @@ namespace Diplodocus.Automatons.InventorySell
                 }
 
                 var sellingPrice = minPrice - 1;
-                _settings.OnItemSelling?.Invoke(item, sellingPrice);
+                var priceSource = "world undercut";
+                if (_settings.useCrossworld)
+                {
+                    CalculatePrice(
+                        minPrice,
+                        (long)data.minimumPrice,
+                        (long)data.averagePrice,
+                        _settings.minimumFraction,
+                        out sellingPrice,
+                        out priceSource
+                    );
+                }
+
+                _settings.OnItemSelling?.Invoke(item, sellingPrice, (long)data.averagePrice, priceSource);
                 _retainerSellControl.SetAskingPrice(sellingPrice);
 
                 await _hidControl.CursorConfirm();
@@ -172,13 +190,38 @@ namespace Diplodocus.Automatons.InventorySell
 
                 totalSum += sellingPrice * amount;
 
-                if (_retainerSellControl.MarketItemCount >= 20)
+                if (_retainerControl.CurrentMarketItemCount >= 20)
                 {
                     break;
                 }
             }
 
             _settings.OnResult?.Invoke(i, totalSum);
+        }
+
+        public static void CalculatePrice(long worldMin, long dcMin, long dcAvg, float minFraction, out long price, out string priceSource)
+        {
+            var worldMinFraction = (float)worldMin / dcAvg;
+            if (worldMinFraction < minFraction || dcAvg < worldMin - 1)
+            {
+                priceSource = $"average price";
+                price = dcAvg;
+            }
+            else
+            {
+                priceSource = $"world undercut";
+                price = worldMin - 1;
+            }
+
+            var dcMinimumFraction = (float)dcMin / dcAvg;
+            if (dcMinimumFraction > minFraction && dcMin < price)
+            {
+                priceSource = $"dc undercut";
+                price = dcMin - 1;
+            }
+
+            PluginLog.Log($"Checking average - {worldMin - 1} world min against avg DC {dcAvg}, min DC {dcMin}");
+            PluginLog.Log($"world min fraction {worldMinFraction}, dc min fraction {dcMinimumFraction}, min fraction {minFraction}");
         }
     }
 }

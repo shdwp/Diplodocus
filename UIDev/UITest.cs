@@ -1,4 +1,5 @@
-﻿using ImGuiNET;
+﻿using System;
+using ImGuiNET;
 using ImGuiScene;
 using System.Numerics;
 using UIDev.Framework;
@@ -9,7 +10,13 @@ namespace UIDev
     {
         public static void Main(string[] args)
         {
-            UIBootstrap.Inititalize(new UITest());
+            long price = 17000;
+            long averagePrice = 16000;
+            var fraction = (float)price / averagePrice;
+            fraction *= 100;
+
+            Console.WriteLine($"{(int)fraction}%");
+            // UIBootstrap.Inititalize(new UITest());
         }
 
         private TextureWrap? goatImage;
@@ -17,10 +24,7 @@ namespace UIDev
 
         public void Initialize(SimpleImGuiScene scene)
         {
-            // scene is a little different from what you have access to in dalamud
-            // but it can accomplish the same things, and is really only used for initial setup here
 
-            // eg, to load an image resource for use with ImGui 
             this.goatImage = scene.LoadImage("goat.png");
 
             scene.OnBuildUI += Draw;

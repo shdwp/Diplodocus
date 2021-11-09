@@ -22,7 +22,7 @@ namespace Diplodocus.Lib.Automaton
 
             if (ShouldDelayStart)
             {
-                await Task.Delay(TimeSpan.FromSeconds(1.5));
+                await Task.Delay(TimeSpan.FromSeconds(3));
             }
 
             if (!ValidateStart())

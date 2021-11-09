@@ -15,7 +15,7 @@ using Lumina.Excel.GeneratedSheets;
 
 namespace Diplodocus.Assistants
 {
-    public sealed class MarketCheckAssistant : IAssistant
+    public sealed class MarketInspectAssistant : IAssistant
     {
         private readonly InventoryLib      _inventoryLib;
         private readonly UniversalisClient _universalis;
@@ -28,7 +28,7 @@ namespace Diplodocus.Assistants
         private bool  _lastItemCheckCrossworld;
         private int   _lastKeyState;
 
-        public MarketCheckAssistant(UniversalisClient universalis, GameGui gameGui, InventoryLib inventoryLib, ChatGui chatGui, DataManager dataManager, KeyState keyState, Framework framework)
+        public MarketInspectAssistant(UniversalisClient universalis, GameGui gameGui, InventoryLib inventoryLib, ChatGui chatGui, DataManager dataManager, KeyState keyState, Framework framework)
         {
             _universalis = universalis;
             _gameGui = gameGui;
@@ -70,6 +70,7 @@ namespace Diplodocus.Assistants
             }
 
             var crossworld = _keyState.GetRawValue(VirtualKey.CONTROL) > 0;
+            var listings = _keyState[VirtualKey.MENU] || crossworld;
 
             if (_gameGui.HoveredItem == 0)
             {
@@ -90,12 +91,12 @@ namespace Diplodocus.Assistants
             _lastItemChecked = _gameGui.HoveredItem;
             _lastItemCheckCrossworld = crossworld;
             var task = crossworld ? _universalis.GetDCData(_gameGui.HoveredItem) : _universalis.GetWorldData(_gameGui.HoveredItem);
-            var _ = EchoMarketData(task, crossworld, type);
+            var _ = EchoMarketData(task, crossworld, listings, type);
         }
 
-        private async Task EchoMarketData(Task<MarketBoardData?> dataTask, bool crossworld, Item type)
+        private async Task EchoMarketData(Task<MarketBoardData?> dataTask, bool crossworld, bool listings, Item type)
         {
-            _inventoryLib.ParseItemId(_gameGui.HoveredItem, out var id, out var hq);
+            InventoryLib.ParseItemId(_gameGui.HoveredItem, out var id, out var hq);
 
             var data = await dataTask;
 
@@ -109,52 +110,67 @@ namespace Diplodocus.Assistants
                 msg.Append(new IconPayload(BitmapFontIcon.PriorityWorld));
             }
 
-            msg.Append(new UIForegroundPayload(GameColors.Green));
             msg.Append(new ItemPayload(id, hq));
-            msg.Append(new TextPayload(type.Name + (char)SeIconChar.HighQuality));
+            msg.Append(new UIForegroundPayload(GameColors.Green));
+            msg.Append(new TextPayload(type.Name));
+            if (hq)
+            {
+                msg.Append(new TextPayload("" + (char)SeIconChar.HighQuality));
+            }
+            msg.Append(UIForegroundPayload.UIForegroundOff);
             msg.Append(RawPayload.LinkTerminator);
 
-            msg.Append(UIForegroundPayload.UIForegroundOff);
             msg.Append(new TextPayload(" min "));
             msg.Append(new UIGlowPayload(GameColors.Red));
             msg.Append(new UIForegroundPayload(GameColors.Red));
-            msg.Append(new TextPayload(data.minimumPrice.ToString() + (char)SeIconChar.Gil));
+            msg.Append(new TextPayload(InventoryLib.FormatPrice(data.minimumPrice.Value) + (char)SeIconChar.Gil));
             msg.Append(UIForegroundPayload.UIForegroundOff);
             msg.Append(UIGlowPayload.UIGlowOff);
+
             if (crossworld)
             {
                 msg.Append(new TextPayload(" (" + data.listings.First().worldName + ")"));
             }
 
-            msg.Append(new TextPayload(", avg "));
+            msg.Append(new TextPayload(", avgm "));
             msg.Append(new UIGlowPayload(GameColors.Orange));
-            msg.Append(new TextPayload($"{data.averagePrice:0.0}{(char)SeIconChar.Gil}"));
+            msg.Append(new TextPayload($"{InventoryLib.FormatPrice(data.averageMinimumPrice.Value)}{(char)SeIconChar.Gil}"));
+            msg.Append(UIGlowPayload.UIGlowOff);
+
+            msg.Append(new TextPayload(", avgh "));
+            msg.Append(new UIGlowPayload(GameColors.Orange));
+            msg.Append(new TextPayload($"{InventoryLib.FormatPrice(data.averagePrice.Value)}{(char)SeIconChar.Gil}"));
             msg.Append(UIGlowPayload.UIGlowOff);
 
             msg.Append(new TextPayload(", spd "));
             msg.Append(new UIGlowPayload(GameColors.Blue));
-            msg.Append(new TextPayload($"{data.averageSoldPerDay:0.1}{(char)SeIconChar.Hexagon}"));
+            msg.Append(new TextPayload($"{data.averageSoldPerDay:F1}{(char)SeIconChar.Hexagon}"));
             msg.Append(UIGlowPayload.UIGlowOff);
-            if (crossworld)
+
+            if (listings)
             {
                 foreach (var listing in data.listings.Take(5))
                 {
                     msg.Append(new NewLinePayload());
                     msg.Append(new UIForegroundPayload(GameColors.Red));
-                    msg.Append(new TextPayload(listing.price.ToString() + (char)SeIconChar.Gil));
+                    msg.Append(new TextPayload(InventoryLib.FormatPrice(listing.price) + (char)SeIconChar.Gil));
                     msg.Append(UIForegroundPayload.UIForegroundOff);
-                    msg.Append(new TextPayload($" {listing.amount} "));
+                    var hqStr = listing.hq ? (char)SeIconChar.HighQuality : ' ';
+                    msg.Append(new TextPayload($"       {hqStr}{listing.amount}       "));
 
-                    if (listing.worldName != "Twintania")
+                    if (crossworld)
                     {
-                        msg.Append(new IconPayload(BitmapFontIcon.CrossWorld));
-                    }
-                    else
-                    {
-                        msg.Append(new IconPayload(BitmapFontIcon.PriorityWorld));
-                    }
+                        if (listing.worldName != "Twintania")
+                        {
+                            msg.Append(new IconPayload(BitmapFontIcon.CrossWorld));
+                        }
+                        else
+                        {
+                            msg.Append(new IconPayload(BitmapFontIcon.PriorityWorld));
+                        }
 
-                    msg.Append(new TextPayload($"{listing.worldName}"));
+                        msg.Append(new TextPayload($"{listing.worldName}"));
+                    }
                 }
             }
 

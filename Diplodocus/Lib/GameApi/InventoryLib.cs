@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Dalamud.Data;
 using Dalamud.Logging;
 using FFXIVClientStructs;
@@ -16,14 +17,14 @@ namespace Diplodocus.Lib.GameApi.Inventory
             public ulong id;
             public Item  type;
             public bool  hq;
-            public uint  amount;
+            public int  amount;
             public short slot;
         }
 
         private readonly InventoryManager* _inventoryManager;
         private readonly ExcelSheet<Item>  _itemSheet;
 
-        public static readonly InventoryType[] PlayerInventories = { InventoryType.Inventory1, InventoryType.Inventory2, InventoryType.Inventory3, InventoryType.Inventory4 };
+        public static readonly InventoryType[] PlayerInventories = { InventoryType.Inventory1, InventoryType.Inventory2, InventoryType.Inventory3, InventoryType.Inventory4, InventoryType.Crystals };
 
         public InventoryLib(DataManager dataManager)
         {
@@ -37,14 +38,16 @@ namespace Diplodocus.Lib.GameApi.Inventory
         {
         }
 
-        public uint Count(ulong itemId, InventoryType[] inventoryTypes)
+        public int Count(ulong rawId, InventoryType[] inventoryTypes, bool ignoreQuality = false)
         {
-            uint result = 0;
+            ParseItemId(rawId, out var itemId, out var hq);
+            int result = 0;
+
             foreach (var item in EnumerateInventories(inventoryTypes))
             {
-                if (item.id == itemId)
+                if (item.type.RowId == itemId && (ignoreQuality || item.hq == hq))
                 {
-                    result += item.amount;
+                    result += (int)item.amount;
                 }
             }
 
@@ -87,22 +90,32 @@ namespace Diplodocus.Lib.GameApi.Inventory
                     id = itemId,
                     type = type,
                     hq = hq,
-                    amount = item.Quantity,
+                    amount = (int)item.Quantity,
                     slot = item.Slot,
                 };
             }
         }
 
-        public void ParseItemId(ulong id, out uint realId, out bool hq)
+        public static void ParseItemId(ulong id, out uint realId, out bool hq)
         {
             hq = id > 1000000;
             realId = hq ? (uint)id - 1000000 : (uint)id;
+        }
+
+        public static ulong EncodeItemId(Item item, bool hq)
+        {
+            return !hq ? item.RowId : item.RowId + 1000000;
         }
 
         public Item GetItemType(ulong id)
         {
             ParseItemId(id, out var realId, out var _);
             return _itemSheet.GetRow(realId);
+        }
+
+        public Item GetItemType(string name)
+        {
+            return _itemSheet.FirstOrDefault(i => i.Name.ToString().Equals(name));
         }
 
         public uint GetContainerSize(InventoryType t)
@@ -115,6 +128,17 @@ namespace Diplodocus.Lib.GameApi.Inventory
         {
             var container = _inventoryManager->GetInventoryContainer(t);
             return container->Items[idx];
+        }
+
+        public static string FormatPrice(double num)
+        {
+            if (num >= 100000)
+                return FormatPrice(num / 1000) + "K";
+
+            if (num >= 10000)
+                return (num / 1000D).ToString("0.#") + "K";
+
+            return num.ToString("#,0");
         }
     }
 }

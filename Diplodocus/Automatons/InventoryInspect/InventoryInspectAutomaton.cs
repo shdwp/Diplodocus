@@ -35,9 +35,9 @@ namespace Diplodocus.Automatons.InventoryInspect
             };
         }
 
-        private void OnItemSelling(Item arg1, long arg2)
+        private void OnItemSelling(Item arg1, long price, long averagePrice, string priceSource)
         {
-            _log.Append($"SELLING {arg1.Name} ({arg2}).\n");
+            // _log.Append($"SELLING {arg1.Name} ({InventoryLib.FormatPrice(price)}).\n");
         }
 
         private void OnResult(int count, long totalSum)

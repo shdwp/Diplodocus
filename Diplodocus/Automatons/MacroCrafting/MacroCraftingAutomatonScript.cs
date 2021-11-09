@@ -63,10 +63,14 @@ namespace Diplodocus.Automatons.MacroCrafting
 
                 await _hidControl.CursorConfirm();
                 await _hidControl.CursorConfirm();
+
                 if (!await _atkControl.WaitForWindow(AtkControl.Synthesis))
                 {
                     _settings.OnScriptFailed?.Invoke("crafting didn't start");
+                    return;
                 }
+
+                await Task.Delay(TimeSpan.FromSeconds(1));
 
                 await _hidControl.Keypress((int)VirtualKey.KEY_5);
 
@@ -80,11 +84,14 @@ namespace Diplodocus.Automatons.MacroCrafting
                 }
 
                 _settings.OnItemCrafted?.Invoke();
+                await _hidControl.Keypress((int)VirtualKey.KEY_4);
 
                 if (!await _atkControl.WaitForWindow(AtkControl.CraftingLog))
                 {
                     _settings.OnScriptFailed?.Invoke("crafting didn't finish");
                 }
+
+                await Task.Delay(TimeSpan.FromSeconds(1));
             }
 
             _settings.OnScriptCompleted?.Invoke();

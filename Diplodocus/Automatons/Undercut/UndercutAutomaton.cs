@@ -1,16 +1,27 @@
 ﻿using Diplodocus.Lib.Automaton;
+using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
 
 namespace Diplodocus.Automatons.Undercut
 {
     public sealed class UndercutAutomaton : BaseAutomaton<UndercutAutomatonScript, UndercutAutomatonScript.UndercutSettings>
     {
+        private float _minFraction = 0.7f;
+        private bool  _dcPrices   = true;
+
         public UndercutAutomaton(UndercutAutomatonScript script) : base(script)
         {
         }
 
         public override void Draw()
         {
+            ImGui.Text("Minimum fraction:");
+            ImGui.SameLine();
+            ImGui.InputFloat("##is_minfraction", ref _minFraction);
+
+            ImGui.Checkbox("##isa_averageprice", ref _dcPrices);
+            ImGui.SameLine();
+            ImGui.Text(" Use DC prices");
         }
 
         public override string GetName()
@@ -22,13 +33,16 @@ namespace Diplodocus.Automatons.Undercut
         {
             return new UndercutAutomatonScript.UndercutSettings
             {
+                useCrossworld = _dcPrices,
+                minimumFraction = _minFraction,
                 OnPriceUpdated = OnPriceUpdated,
             };
         }
 
-        private void OnPriceUpdated(Item arg1, long arg2)
+        private void OnPriceUpdated(Item arg1, long price, long averagePrice, string priceSource)
         {
-            _log.Append($"{arg1.Name} price updated to {arg2}.\n");
+            var fraction = (float)price / averagePrice;
+            _log.Append($"UPDATE [{fraction:F}] {arg1.Name} to {price} ({priceSource}).\n");
         }
     }
 }

@@ -1,14 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Numerics;
-using Dalamud.Logging;
 using Dalamud.Plugin;
 using Diplodocus.Lib.Automaton;
 using ImGuiNET;
 
 namespace Diplodocus
 {
-    public class PluginUI : IDisposable
+    public class AutomatonsWindowUI : IDisposable
     {
         private struct Tab
         {
@@ -35,7 +34,7 @@ namespace Diplodocus
 
         private List<Tab> _tabs = new();
 
-        public PluginUI(Configuration configuration, DalamudPluginInterface pluginInterface)
+        public AutomatonsWindowUI(Configuration configuration, DalamudPluginInterface pluginInterface)
         {
             _configuration = configuration;
             _pluginInterface = pluginInterface;
@@ -78,7 +77,7 @@ namespace Diplodocus
             ImGui.SetNextWindowSizeConstraints(new Vector2(375, 330), new Vector2(float.MaxValue, float.MaxValue));
             if (ImGui.Begin("My Amazing Window", ref this._visible))
             {
-                if (ImGui.BeginTabBar("tabbar"))
+                if (ImGui.BeginTabBar("##at_tabbar"))
                 {
                     foreach (var tab in _tabs)
                     {

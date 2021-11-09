@@ -115,9 +115,7 @@ namespace Diplodocus.Universalis
                 double averageSoldPerDay = 0;
                 var lastSell = DateTime.Now;
 
-                /*
-                PluginLog.Debug("====================");
-                */
+                // PluginLog.Debug("====================");
 
                 var listings = new List<MarketBoardData.Listing>();
 
@@ -128,6 +126,7 @@ namespace Diplodocus.Universalis
                         worldName = listing.worldName ?? "Twintania",
                         price = listing.pricePerUnit,
                         amount = listing.quantity,
+                        hq = listing.hq,
                     });
                 }
 
@@ -140,7 +139,7 @@ namespace Diplodocus.Universalis
                     /*
                     PluginLog.Debug("Selling date " + sellingDate);
                     PluginLog.Debug("Age on previous " + age + ", days " + age.TotalDays);
-                    PluginLog.Debug("Per day " + (1 / age.TotalDays));
+                    PluginLog.Debug("Per day + " + (1 / age.TotalDays));
                     */
 
                     if (age == TimeSpan.Zero)
@@ -165,8 +164,11 @@ namespace Diplodocus.Universalis
                     lastUploadTime = json.lastUploadTime?.Value,
 
                     minimumPrice = minPrice,
-                    averagePrice = averagePrice,
+                    averageMinimumPrice = averagePrice,
                     averageSoldPerDay = averageSoldPerDay,
+                    averagePrice = hq ? json.averagePriceHQ : json.averagePriceNQ,
+                    averagePriceHQ = json.averagePriceHQ,
+                    averagePriceNQ = json.averagePriceNQ,
 
                     listings = listings?.ToArray(),
                 };

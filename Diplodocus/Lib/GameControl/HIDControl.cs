@@ -48,7 +48,7 @@ namespace Diplodocus.Lib.GameControl
         public async Task Keypress(int code)
         {
             Game.SendKey(code);
-            await Task.Delay(TimeSpan.FromMilliseconds(120));
+            await Task.Delay(TimeSpan.FromMilliseconds(140));
         }
     }
 }

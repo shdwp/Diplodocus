@@ -59,7 +59,7 @@ namespace Diplodocus.Automatons.InventoryInspect
                     continue;
                 }
 
-                _settings.OnItemSelling?.Invoke(item.type, (long)totalPrice);
+                _settings.OnItemSelling?.Invoke(item.type, (long)totalPrice, 0, "");
                 sellingCount++;
                 sellingSum += (long)totalPrice;
             }

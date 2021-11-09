@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using Dalamud.Data;
 using Diplodocus.Lib.Automaton;
+using Diplodocus.Lib.GameApi;
 using Diplodocus.Lib.GameControl;
 using Lumina.Excel;
 using Lumina.Excel.GeneratedSheets;
@@ -19,15 +20,17 @@ namespace Diplodocus.Automatons.MarketReturn
 
         private readonly HIDControl          _hidControl;
         private readonly RetainerSellControl _retainerSellControl;
+        private readonly RetainerControl     _retainerControl;
         private readonly AtkControl          _atkControl;
 
         private ExcelSheet<Item> _itemSheet;
 
-        public MarketReturnAutomatonScript(HIDControl hidControl, RetainerSellControl retainerSellControl, DataManager dataManager, AtkControl atkControl)
+        public MarketReturnAutomatonScript(HIDControl hidControl, RetainerSellControl retainerSellControl, DataManager dataManager, AtkControl atkControl, RetainerControl retainerControl)
         {
             _hidControl = hidControl;
             _retainerSellControl = retainerSellControl;
             _atkControl = atkControl;
+            _retainerControl = retainerControl;
             _itemSheet = dataManager.GameData.GetExcelSheet<Item>();
         }
 
@@ -52,7 +55,7 @@ namespace Diplodocus.Automatons.MarketReturn
         {
             await _hidControl.CursorDown();
 
-            var amount = _retainerSellControl.MarketItemCount;
+            var amount = _retainerControl.CurrentMarketItemCount;
             for (var i = 0; i < amount; i++)
             {
                 if (!_run)

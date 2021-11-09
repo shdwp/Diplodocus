@@ -18,6 +18,7 @@ using Dalamud.Game.Network;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using Diplodocus.Assistants;
+using Diplodocus.Assistants.Storefront;
 using Diplodocus.Automatons.InventoryInspect;
 using Diplodocus.Automatons.InventorySell;
 using Diplodocus.Automatons.MacroCrafting;
@@ -94,7 +95,7 @@ namespace Diplodocus
             Bind<Configuration>().ToConstant(config).InScope(_ => _scope);
 
             BindSingleton<App>();
-            BindSingleton<PluginUI>();
+            BindSingleton<AutomatonsWindowUI>();
 
             BindSingleton<InventoryLib>();
             BindSingleton<AtkLib>();
@@ -103,6 +104,8 @@ namespace Diplodocus
             BindSingleton<CraftingUIControl>();
             BindSingleton<HIDControl>();
             BindSingleton<RetainerSellControl>();
+            BindSingleton<CraftingLib>();
+            BindSingleton<RetainerControl>();
 
             BindAutomaton<MacroCraftingAutomaton, MacroCraftingAutomatonScript>();
             BindAutomaton<UndercutAutomaton, UndercutAutomatonScript>();
@@ -110,7 +113,11 @@ namespace Diplodocus
             BindAutomaton<InventorySellAutomaton, InventorySellAutomatonScript>();
             BindAutomaton<MarketReturnAutomaton, MarketReturnAutomatonScript>();
 
-            BindAssistant<MarketCheckAssistant>();
+            BindAssistant<MarketInspectAssistant>();
+            BindAssistant<CraftingLogInspectAssistant>();
+            BindAssistant<CraftingListAssistant>();
+            BindAssistant<StorefrontAssistant>();
+            BindAssistant<CraftingMacroStopAssistant>();
         }
 
         private void BindDalamudService<T>(T instance)

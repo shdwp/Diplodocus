@@ -1,4 +1,5 @@
 ﻿using Diplodocus.Lib.Automaton;
+using Diplodocus.Lib.GameApi.Inventory;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
 
@@ -6,8 +7,10 @@ namespace Diplodocus.Automatons.InventorySell
 {
     public sealed class InventorySellAutomaton : BaseAutomaton<InventorySellAutomatonScript, InventorySellAutomatonScript.Settings>
     {
-        private int           _minPrice = 1000;
-        private int           _count    = 1;
+        private int   _minPrice   = 1000;
+        private int   _count      = 1;
+        private float _minFraction = 0.7f;
+        private bool  _dcPrices   = true;
 
         public InventorySellAutomaton(InventorySellAutomatonScript sellAutomatonScript) : base(sellAutomatonScript)
         {
@@ -22,6 +25,14 @@ namespace Diplodocus.Automatons.InventorySell
             ImGui.Text("Item count:");
             ImGui.SameLine();
             ImGui.InputInt("##count", ref _count);
+
+            ImGui.Text("Minimum fraction:");
+            ImGui.SameLine();
+            ImGui.InputFloat("##is_minfraction", ref _minFraction);
+
+            ImGui.Checkbox("##isa_averageprice", ref _dcPrices);
+            ImGui.SameLine();
+            ImGui.Text(" Use DC prices");
         }
 
         public override string GetName()
@@ -35,6 +46,8 @@ namespace Diplodocus.Automatons.InventorySell
             {
                 minimumPrice = _minPrice,
                 itemCount = _count,
+                useCrossworld = _dcPrices,
+                minimumFraction = _minFraction,
 
                 OnItemSkipped = OnItemSkipped,
                 OnItemSelling = OnItemSelling,
@@ -47,9 +60,10 @@ namespace Diplodocus.Automatons.InventorySell
             _log.Append($"SKIP {arg1.Name} - {arg2}.\n");
         }
 
-        private void OnItemSelling(Item arg1, long arg2)
+        private void OnItemSelling(Item arg1, long price, long averagePrice, string priceSource)
         {
-            _log.Append($"SELLING {arg1.Name} ({arg2}).\n");
+            var fraction = (float)price / averagePrice;
+            _log.Append($"SELLING [{fraction:F}] {arg1.Name} ({InventoryLib.FormatPrice(price)} - {priceSource}).\n");
         }
 
         private void OnResult(int count, long totalSum)
