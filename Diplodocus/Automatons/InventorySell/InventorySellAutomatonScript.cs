@@ -4,9 +4,9 @@ using Dalamud.Data;
 using Dalamud.Game.Gui;
 using Dalamud.Logging;
 using Diplodocus.Lib.Automaton;
-using Diplodocus.Lib.GameApi;
 using Diplodocus.Lib.GameApi.Inventory;
 using Diplodocus.Lib.GameControl;
+using Diplodocus.Lib.Pricing;
 using Diplodocus.Universalis;
 using Lumina.Excel;
 using Lumina.Excel.GeneratedSheets;
@@ -31,6 +31,7 @@ namespace Diplodocus.Automatons.InventorySell
         private readonly DataManager         _dataManager;
         private readonly UniversalisClient   _universalis;
         private readonly InventoryLib        _inventoryLib;
+        private readonly PricingLib          _pricingLib;
         private readonly HIDControl          _hidControl;
         private readonly AtkControl          _atkControl;
         private readonly RetainerSellControl _retainerSellControl;
@@ -38,7 +39,7 @@ namespace Diplodocus.Automatons.InventorySell
 
         private ExcelSheet<Item> _itemSheet;
 
-        public InventorySellAutomatonScript(UniversalisClient universalis, HIDControl hidControl, RetainerSellControl retainerSellControl, AtkControl atkControl, InventoryLib inventoryLib, GameGui gameGui, DataManager dataManager, RetainerControl retainerControl)
+        public InventorySellAutomatonScript(UniversalisClient universalis, HIDControl hidControl, RetainerSellControl retainerSellControl, AtkControl atkControl, InventoryLib inventoryLib, GameGui gameGui, DataManager dataManager, RetainerControl retainerControl, PricingLib pricingLib)
         {
             _universalis = universalis;
             _hidControl = hidControl;
@@ -48,6 +49,7 @@ namespace Diplodocus.Automatons.InventorySell
             _gameGui = gameGui;
             _dataManager = dataManager;
             _retainerControl = retainerControl;
+            _pricingLib = pricingLib;
 
             _itemSheet = _dataManager.GameData.GetExcelSheet<Item>();
         }
@@ -168,7 +170,7 @@ namespace Diplodocus.Automatons.InventorySell
                 var priceSource = "world undercut";
                 if (_settings.useCrossworld)
                 {
-                    CalculatePrice(
+                    _pricingLib.CalculatePrice(
                         minPrice,
                         (long)data.minimumPrice,
                         (long)data.averagePrice,
@@ -197,31 +199,6 @@ namespace Diplodocus.Automatons.InventorySell
             }
 
             _settings.OnResult?.Invoke(i, totalSum);
-        }
-
-        public static void CalculatePrice(long worldMin, long dcMin, long dcAvg, float minFraction, out long price, out string priceSource)
-        {
-            var worldMinFraction = (float)worldMin / dcAvg;
-            if (worldMinFraction < minFraction || dcAvg < worldMin - 1)
-            {
-                priceSource = $"average price";
-                price = dcAvg;
-            }
-            else
-            {
-                priceSource = $"world undercut";
-                price = worldMin - 1;
-            }
-
-            var dcMinimumFraction = (float)dcMin / dcAvg;
-            if (dcMinimumFraction > minFraction && dcMin < price)
-            {
-                priceSource = $"dc undercut";
-                price = dcMin - 1;
-            }
-
-            PluginLog.Log($"Checking average - {worldMin - 1} world min against avg DC {dcAvg}, min DC {dcMin}");
-            PluginLog.Log($"world min fraction {worldMinFraction}, dc min fraction {dcMinimumFraction}, min fraction {minFraction}");
         }
     }
 }

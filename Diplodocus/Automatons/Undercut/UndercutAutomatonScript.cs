@@ -5,8 +5,8 @@ using Dalamud.Game.Gui;
 using Dalamud.Logging;
 using Diplodocus.Automatons.InventorySell;
 using Diplodocus.Lib.Automaton;
-using Diplodocus.Lib.GameApi;
 using Diplodocus.Lib.GameControl;
+using Diplodocus.Lib.Pricing;
 using Diplodocus.Universalis;
 using Lumina.Excel;
 using Lumina.Excel.GeneratedSheets;
@@ -25,6 +25,7 @@ namespace Diplodocus.Automatons.Undercut
 
         private readonly GameGui             _gameGui;
         private readonly UniversalisClient   _universalis;
+        private readonly PricingLib          _pricingLib;
         private readonly HIDControl          _hidControl;
         private readonly RetainerSellControl _retainerSellControl;
         private readonly RetainerControl     _retainerControl;
@@ -32,7 +33,7 @@ namespace Diplodocus.Automatons.Undercut
 
         private ExcelSheet<Item> _itemSheet;
 
-        public UndercutAutomatonScript(HIDControl hidControl, RetainerSellControl retainerSellControl, AtkControl atkControl, DataManager dataManager, GameGui gameGui, RetainerControl retainerControl, UniversalisClient universalis)
+        public UndercutAutomatonScript(HIDControl hidControl, RetainerSellControl retainerSellControl, AtkControl atkControl, DataManager dataManager, GameGui gameGui, RetainerControl retainerControl, UniversalisClient universalis, PricingLib pricingLib)
         {
             _hidControl = hidControl;
             _retainerSellControl = retainerSellControl;
@@ -40,6 +41,7 @@ namespace Diplodocus.Automatons.Undercut
             _gameGui = gameGui;
             _retainerControl = retainerControl;
             _universalis = universalis;
+            _pricingLib = pricingLib;
             _itemSheet = dataManager.GameData.GetExcelSheet<Item>();
         }
 
@@ -130,7 +132,7 @@ namespace Diplodocus.Automatons.Undercut
 
                 if (_settings.useCrossworld)
                 {
-                    InventorySellAutomatonScript.CalculatePrice(
+                    _pricingLib.CalculatePrice(
                         newPrice,
                         (long)data.minimumPrice,
                         (long)data.averagePrice,

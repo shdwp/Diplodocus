@@ -42,7 +42,7 @@ namespace Diplodocus.Automatons.InventoryInspect
 
         private void OnResult(int count, long totalSum)
         {
-            _log.Append($"Script completed (did {count}), total sum {totalSum}.\n");
+            Log($"Script completed (did {count}), total sum {totalSum}.");
         }
     }
 }

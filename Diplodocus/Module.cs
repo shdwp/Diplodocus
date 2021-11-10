@@ -19,6 +19,7 @@ using Dalamud.IoC;
 using Dalamud.Plugin;
 using Diplodocus.Assistants;
 using Diplodocus.Assistants.Storefront;
+using Diplodocus.Automatons.CraftingLogResearch;
 using Diplodocus.Automatons.InventoryInspect;
 using Diplodocus.Automatons.InventorySell;
 using Diplodocus.Automatons.MacroCrafting;
@@ -27,6 +28,7 @@ using Diplodocus.Automatons.Undercut;
 using Diplodocus.Lib.GameApi;
 using Diplodocus.Lib.GameApi.Inventory;
 using Diplodocus.Lib.GameControl;
+using Diplodocus.Lib.Pricing;
 using Ninject;
 using Ninject.Modules;
 
@@ -99,6 +101,7 @@ namespace Diplodocus
 
             BindSingleton<InventoryLib>();
             BindSingleton<AtkLib>();
+            BindSingleton<PricingLib>();
 
             BindSingleton<AtkControl>();
             BindSingleton<CraftingUIControl>();
@@ -112,6 +115,7 @@ namespace Diplodocus
             BindAutomaton<InventoryInspectAutomaton, InventoryInspectAutomatonScript>();
             BindAutomaton<InventorySellAutomaton, InventorySellAutomatonScript>();
             BindAutomaton<MarketReturnAutomaton, MarketReturnAutomatonScript>();
+            BindAutomaton<CraftingLogResearchAutomaton, CraftingLogResearchAutomatonScript>();
 
             BindAssistant<MarketInspectAssistant>();
             BindAssistant<CraftingLogInspectAssistant>();

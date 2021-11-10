@@ -5,26 +5,20 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using System.Web;
 using Dalamud.Logging;
-using Dalamud.Utility;
 using Diplodocus.Lib.GameApi.Inventory;
-using Lumina.Excel.GeneratedSheets;
 
-namespace Diplodocus.Assistants.Storefront
+namespace Diplodocus.Lib.GSheets
 {
-    public sealed class StorefrontData
+    public sealed partial class GSheetsClient
     {
         private readonly HttpClient   _client;
         private readonly InventoryLib _inventoryLib;
 
-        private readonly string _id        = "1-KA1DFzaiJOCdFfTUdNKRaTUUXnoh3bef_erklXjN98";
-        private readonly string _sheetName = "MBStorefront";
+        private readonly string _id = "1-KA1DFzaiJOCdFfTUdNKRaTUUXnoh3bef_erklXjN98";
 
-        public List<(Item, bool, int)> Items;
-
-        public StorefrontData(InventoryLib inventoryLib)
+        public GSheetsClient(InventoryLib inventoryLib)
         {
             _inventoryLib = inventoryLib;
-            Items = new List<(Item, bool, int)>();
 
             this._client = new HttpClient
             {
@@ -32,16 +26,15 @@ namespace Diplodocus.Assistants.Storefront
             };
         }
 
-        public async Task FetchData()
+        public async Task<IReadOnlyList<Row>> Fetch(string sheetName)
         {
-            Items.Clear();
+            sheetName = HttpUtility.UrlEncode(sheetName);
+            var url = string.Format("https://docs.google.com/spreadsheets/d/{0}/gviz/tq?tqx=out:csv&sheet={1}", _id, sheetName);
 
-            var sheetName = HttpUtility.UrlEncode(_sheetName);
-            var url = "https://docs.google.com/spreadsheets/d/{0}/gviz/tq?tqx=out:csv&sheet={1}".Format(_id, sheetName);
             PluginLog.Debug(url);
-
             var response = await _client.GetStringAsync(url);
-            var newItems = new List<(Item, bool, int)>();
+
+            var result = new List<Row>();
 
             foreach (var rowString in response.Split('\n'))
             {
@@ -53,9 +46,8 @@ namespace Diplodocus.Assistants.Storefront
                 }
 
                 var itemNameString = rowData[1];
-                var itemCountString = rowData[6];
 
-                if (itemNameString.Any() && itemCountString.Any())
+                if (itemNameString.Any())
                 {
                     var itemType = _inventoryLib.GetItemType(itemNameString);
                     if (itemType == null)
@@ -63,16 +55,11 @@ namespace Diplodocus.Assistants.Storefront
                         continue;
                     }
 
-                    var itemCount = int.Parse(itemCountString);
-
-                    if (itemCount > 0)
-                    {
-                        newItems.Add((itemType, false, itemCount));
-                    }
+                    result.Add(new Row(itemType, rowData.Skip(1).ToArray()));
                 }
             }
 
-            Items = newItems;
+            return result;
         }
     }
 }

@@ -347,6 +347,7 @@ namespace Diplodocus.Assistants
                 }
             }
 
+            /*
             foreach (var itemId in _shoppingList.Keys)
             {
                 if (!_itemPrices.ContainsKey(itemId))
@@ -354,6 +355,7 @@ namespace Diplodocus.Assistants
                     FetchPriceInBackground(itemId);
                 }
             }
+            */
         }
 
         private void MarkItemAsResolved(ulong item)

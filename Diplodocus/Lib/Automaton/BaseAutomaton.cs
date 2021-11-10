@@ -8,7 +8,7 @@ namespace Diplodocus.Lib.Automaton
         where TSettings : BaseAutomatonScriptSettings
         where TScript : IAutomatonScript<TSettings>
     {
-        protected readonly StringBuilder _log = new();
+        private readonly StringBuilder _log = new();
 
         protected TScript script;
 
@@ -43,6 +43,12 @@ namespace Diplodocus.Lib.Automaton
 
             ImGui.Text("Log:");
             ImGui.TextWrapped(_log.ToString());
+        }
+
+        protected void Log(string str)
+        {
+            var time = DateTime.Now.ToString("hh:mm:ss");
+            _log.AppendLine($"{time} {str}");
         }
 
         private void OnScriptFailed(string obj)

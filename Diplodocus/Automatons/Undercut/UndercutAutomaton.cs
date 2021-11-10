@@ -42,7 +42,7 @@ namespace Diplodocus.Automatons.Undercut
         private void OnPriceUpdated(Item arg1, long price, long averagePrice, string priceSource)
         {
             var fraction = (float)price / averagePrice;
-            _log.Append($"UPDATE [{fraction:F}] {arg1.Name} to {price} ({priceSource}).\n");
+            Log($"UPDATE [{fraction:F}] {arg1.Name} to {price} ({priceSource}).");
         }
     }
 }

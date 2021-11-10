@@ -79,6 +79,10 @@ namespace Diplodocus.Lib.GameApi
                 }
 
                 var marketData = await _universalis.GetDCData(ingredientType.RowId);
+                if (marketData == null)
+                {
+                    return null;
+                }
 
                 PluginLog.Debug($"Ingredient {ingredientType.Name} avg {marketData.averagePriceNQ} {marketData.averageMinimumPrice}");
                 result.Add(new Ingredient

@@ -57,19 +57,19 @@ namespace Diplodocus.Automatons.InventorySell
 
         private void OnItemSkipped(Item arg1, string arg2)
         {
-            _log.Append($"SKIP {arg1.Name} - {arg2}.\n");
+            Log($"SKIP {arg1.Name} - {arg2}.\n");
         }
 
         private void OnItemSelling(Item arg1, long price, long averagePrice, string priceSource)
         {
             var fraction = (float)price / averagePrice;
-            _log.Append($"SELLING [{fraction:F}] {arg1.Name} ({InventoryLib.FormatPrice(price)} - {priceSource}).\n");
+            Log($"SELLING [{fraction:F}] {arg1.Name} ({InventoryLib.FormatPrice(price)} - {priceSource}).");
         }
 
         private void OnResult(int count, long totalSum)
         {
             _count = _count - count;
-            _log.Append($"Script completed (did {count}), total sum {totalSum}.\n");
+            Log($"Script completed (did {count}), total sum {totalSum}.");
         }
     }
 }

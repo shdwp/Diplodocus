@@ -6,6 +6,7 @@ using Dalamud.Logging;
 using Dalamud.Plugin;
 using Diplodocus.Assistants;
 using Diplodocus.Assistants.Storefront;
+using Diplodocus.Automatons.CraftingLogResearch;
 using Diplodocus.Automatons.InventoryInspect;
 using Diplodocus.Automatons.InventorySell;
 using Diplodocus.Automatons.MacroCrafting;
@@ -46,6 +47,7 @@ namespace Diplodocus
             _automatonsWindowUi.AddComponent(Module.Shared.Get<InventoryInspectAutomaton>());
             _automatonsWindowUi.AddComponent(Module.Shared.Get<InventorySellAutomaton>());
             _automatonsWindowUi.AddComponent(Module.Shared.Get<MarketReturnAutomaton>());
+            _automatonsWindowUi.AddComponent(Module.Shared.Get<CraftingLogResearchAutomaton>());
 
             _assistants.Add(Module.Shared.Get<MarketInspectAssistant>());
             _assistants.Add(Module.Shared.Get<CraftingLogInspectAssistant>());

@@ -124,7 +124,6 @@ namespace Diplodocus.Assistants
         private async Task PerformHoveredItemMarketInspection(Item resultType)
         {
             var resultMarketData = await _universalis.GetDCData(resultType.RowId);
-
             var msg = new SeString();
 
             if (resultMarketData != null)
