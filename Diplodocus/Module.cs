@@ -32,6 +32,7 @@ using Diplodocus.Lib.GameApi;
 using Diplodocus.Lib.GameApi.Inventory;
 using Diplodocus.Lib.GameControl;
 using Diplodocus.Lib.Pricing;
+using Diplodocus.NeuUI.InventoryTabs;
 using Diplodocus.Universalis;
 using Ninject;
 using Ninject.Modules;
@@ -116,6 +117,8 @@ namespace Diplodocus
             BindSingleton<CraftingLib>();
             BindSingleton<RetainerControl>();
             BindSingleton<StorefrontData>();
+            
+            BindSingleton<PlayerInventoryTab>();
 
             BindAutomaton<MacroCraftingAutomaton, MacroCraftingAutomatonScript>();
             BindAutomaton<UndercutAutomaton, UndercutAutomatonScript>();

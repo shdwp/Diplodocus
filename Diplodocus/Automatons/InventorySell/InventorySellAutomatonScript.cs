@@ -73,6 +73,8 @@ namespace Diplodocus.Automatons.InventorySell
 
         public override async Task StartImpl()
         {
+            _retainerSellControl.ResetPricingState();
+            
             long totalSum = 0;
             var i = 0;
             for (; i < _settings.itemCount; i++)

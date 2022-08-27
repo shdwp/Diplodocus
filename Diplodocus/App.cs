@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Dalamud.Game.Command;
+using Dalamud.Interface.Windowing;
 using Dalamud.Logging;
 using Dalamud.Plugin;
 using Diplodocus.Assistants;
@@ -16,6 +17,7 @@ using Diplodocus.Automatons.RetainerInventory;
 using Diplodocus.Automatons.Undercut;
 using Diplodocus.Lib.Assistant;
 using Diplodocus.Lib.GameControl;
+using Diplodocus.NeuUI;
 using Ninject;
 
 namespace Diplodocus
@@ -28,12 +30,18 @@ namespace Diplodocus
         private readonly RetainerControl        _retainerControl;
         private readonly RetainerSellControl    _retainerSellControl;
 
+        private readonly WindowSystem _windowSystem = new WindowSystem();
+        private readonly MainWindow   _mainWindow   = new MainWindow("Diplodocus");
+
         private readonly List<IAssistant>      _assistants = new();
         private readonly CraftingListAssistant _craftingListAssistant;
         private readonly StorefrontAssistant   _storefrontAssistant;
 
-        public App(CommandManager commandManager, AutomatonsWindowUI automatonsWindowUi, DalamudPluginInterface pluginInterface, RetainerControl retainerControl, StorefrontAssistant storefrontAssistant, CraftingMacroStopAssistant craftingMacroStopAssistant, CraftingListAssistant craftingListAssistant, RetainerSellControl retainerSellControl)
+        public App(CommandManager commandManager, AutomatonsWindowUI automatonsWindowUi, DalamudPluginInterface pluginInterface, RetainerControl retainerControl, StorefrontAssistant storefrontAssistant, CraftingMacroStopAssistant craftingMacroStopAssistant, CraftingListAssistant craftingListAssistant,
+            RetainerSellControl retainerSellControl)
         {
+            _windowSystem.AddWindow(_mainWindow);
+            
             _commandManager = commandManager;
             _automatonsWindowUi = automatonsWindowUi;
             _pluginInterface = pluginInterface;
@@ -63,6 +71,7 @@ namespace Diplodocus
             _assistants.Add(_storefrontAssistant);
             _assistants.Add(craftingMacroStopAssistant);
 
+            _pluginInterface.UiBuilder.Draw += _windowSystem.Draw;
             _pluginInterface.UiBuilder.Draw += _craftingListAssistant.Draw;
             _pluginInterface.UiBuilder.Draw += _storefrontAssistant.Draw;
         }
@@ -79,6 +88,7 @@ namespace Diplodocus
         {
             if (!arguments.Trim().Any())
             {
+                // _mainWindow.IsOpen = !_mainWindow.IsOpen;
                 _automatonsWindowUi.Visible = true;
             }
             else if (arguments.Trim().Equals("l"))
@@ -96,8 +106,8 @@ namespace Diplodocus
                 {
                     if (kv.Key == "Anartasia")
                     {
-                        
-                    PluginLog.Debug($"{kv.Key} has {kv.Value.type.Name} ({kv.Value.amount})");
+
+                        PluginLog.Debug($"{kv.Key} has {kv.Value.type.Name} ({kv.Value.amount})");
                     }
                 }
             }
