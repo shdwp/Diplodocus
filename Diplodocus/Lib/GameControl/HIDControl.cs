@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Dalamud.Game.ClientState.Keys;
 using Diplodocus.Lib.GameApi;
 
 namespace Diplodocus.Lib.GameControl
@@ -32,7 +33,7 @@ namespace Diplodocus.Lib.GameControl
 
         public async Task CursorConfirm()
         {
-            await Keypress(46);
+            await Keypress(69);
         }
 
         public async Task CursorCancel()
@@ -43,6 +44,11 @@ namespace Diplodocus.Lib.GameControl
         public async Task ToggleInventory()
         {
             await Keypress(71);
+        }
+
+        public async Task Dummy()
+        {
+            await Keypress((int)(VirtualKey.F4));
         }
 
         public async Task Keypress(int code)

@@ -48,7 +48,7 @@ namespace Diplodocus.Lib.Automaton
         protected void Log(string str)
         {
             var time = DateTime.Now.ToString("hh:mm:ss");
-            _log.AppendLine($"{time} {str}");
+            _log.Insert(0, $"{time} {str}\n");
         }
 
         private void OnScriptFailed(string obj)

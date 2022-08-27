@@ -1,17 +1,17 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
 using System.Numerics;
 using System.Threading.Tasks;
 using Dalamud.Game;
 using Dalamud.Game.ClientState.Keys;
+using Dalamud.Game.Gui;
 using Dalamud.Interface.Colors;
-using Dalamud.Logging;
 using Diplodocus.Lib.Assistant;
 using Diplodocus.Lib.GameApi.Inventory;
 using Diplodocus.Lib.GameControl;
+using Diplodocus.Lib.Pricing;
 using Diplodocus.Universalis;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
@@ -37,20 +37,30 @@ namespace Diplodocus.Assistants
 
         private readonly InventoryLib      _inventoryLib;
         private readonly AtkControl        _atkControl;
-        private readonly UniversalisClient _universalisClient;
+        private readonly UniversalisClient _universalis;
+        private readonly Hotkeys           _hotkeys;
+        private readonly KeyState          _keyState;
+        private readonly PricingLib        _pricingLib;
+        private readonly GameGui           _gameGui;
 
         private Dictionary<Item, ShoppingListSection> _craftingList         = new();
         private Dictionary<ulong, int>                _shoppingList         = new();
         private List<ulong>                           _autocopySkippedItems = new();
         private bool                                  _autocopy             = true;
+        private bool                                  _skipButtonPressed;
         private Item                                  _uncategorizedItem;
-        private ConcurrentDictionary<ulong, double>   _itemPrices = new();
+        private ConcurrentDictionary<ulong, double>   _itemPrices  = new();
+        private ConcurrentDictionary<ulong, string>   _itemServers = new();
 
-        public CraftingListAssistant(InventoryLib inventoryLib, AtkControl atkControl, KeyState keyState, Framework framework, UniversalisClient universalisClient)
+        public CraftingListAssistant(InventoryLib inventoryLib, AtkControl atkControl, KeyState keyState, Framework framework, UniversalisClient universalis, PricingLib pricingLib, GameGui gameGui, Hotkeys hotkeys)
         {
             _inventoryLib = inventoryLib;
             _atkControl = atkControl;
-            _universalisClient = universalisClient;
+            _keyState = keyState;
+            _universalis = universalis;
+            _pricingLib = pricingLib;
+            _gameGui = gameGui;
+            _hotkeys = hotkeys;
 
             _uncategorizedItem = new Item();
             _uncategorizedItem.Name = new SeString("Uncategorized");
@@ -66,11 +76,14 @@ namespace Diplodocus.Assistants
         {
             _craftingList.Clear();
             _shoppingList.Clear();
+            _itemPrices.Clear();
+            _itemServers.Clear();
+            _autocopySkippedItems.Clear();
         }
 
-        public void AddUncategorized(uint rawId)
+        public void AddUncategorized(ulong rawId)
         {
-            if (_craftingList.TryGetValue(_uncategorizedItem, out var section))
+            if (!_craftingList.TryGetValue(_uncategorizedItem, out var section))
             {
                 section = new ShoppingListSection("Uncategorized");
                 _craftingList[_uncategorizedItem] = section;
@@ -95,7 +108,6 @@ namespace Diplodocus.Assistants
                 section.multiplier += multiplier;
             }
 
-            RecalculateShoppingList();
             open = true;
         }
 
@@ -107,6 +119,11 @@ namespace Diplodocus.Assistants
             }
 
             return false;
+        }
+
+        public bool CheckIfOnShoppingList(ulong itemId)
+        {
+            return _shoppingList.ContainsKey(itemId);
         }
 
         public void Draw()
@@ -145,6 +162,15 @@ namespace Diplodocus.Assistants
             {
                 _autocopySkippedItems.Clear();
             }
+
+            if (_hotkeys.HotkeyReleased(VirtualKey.MENU, VirtualKey.F))
+            {
+                if (_gameGui.HoveredItem != 0)
+                {
+                    AddUncategorized(_gameGui.HoveredItem);
+                    AutocalculateShoppingList();
+                }
+            }
         }
 
         private void DrawCraftingList()
@@ -180,14 +206,14 @@ namespace Diplodocus.Assistants
                 ImGui.SetNextItemWidth(150);
                 if (ImGui.InputInt("##cla_mult_" + section.name, ref section.multiplier))
                 {
-                    RecalculateShoppingList();
+                    AutocalculateShoppingList();
                 }
 
                 ImGui.SameLine();
                 if (ImGui.Button(" X ##cla_sect_remove_" + section.name))
                 {
                     _craftingList.Remove(itemSection.Key);
-                    RecalculateShoppingList();
+                    AutocalculateShoppingList();
                 }
 
                 ImGui.NextColumn();
@@ -203,6 +229,7 @@ namespace Diplodocus.Assistants
                 if (_autocopy && !autocopied && !completed && craftingLogOpen)
                 {
                     ImGui.SetClipboardText(section.name);
+                    ImGui.SetScrollHereY();
                     autocopied = true;
                 }
             }
@@ -212,14 +239,32 @@ namespace Diplodocus.Assistants
 
         private void DrawShoppingList()
         {
+            var skipButtonPressed = _keyState[VirtualKey.CONTROL] && _keyState[VirtualKey.T];
+
             var marketBoardOpen = _atkControl.IsWindowFocused(AtkControl.MarketBoard);
             var autocopied = false;
 
-            if (ImGui.Button("Autocalculate##cla_autocalc"))
+            if (ImGui.Button("Autocalc##cla_autocalc"))
             {
-                RecalculateShoppingList();
+                AutocalculateShoppingList();
                 _autocopySkippedItems.Clear();
             }
+
+            ImGui.SameLine();
+            if (ImGui.Button("Recalc##cla_recalc"))
+            {
+                _itemPrices.Clear();
+                _itemServers.Clear();
+                AutocalculateShoppingList();
+                _autocopySkippedItems.Clear();
+            }
+
+            ImGui.SameLine();
+            if (ImGui.Button("Clear##cla_clear"))
+            {
+                Clear();
+            }
+
             ImGui.SameLine();
 
             var totalItems = 0;
@@ -234,13 +279,15 @@ namespace Diplodocus.Assistants
                 }
             }
 
-            ImGui.Text($"Total items: {totalItems}. Total cost: {InventoryLib.FormatPrice(totalCost)}.");
+            ImGui.Text($"Total items: {totalItems}. Total cost: {PricingLib.FormatPrice(totalCost)}.");
 
             ImGui.BeginChild("##cla_list");
-            ImGui.Columns(4);
+            ImGui.Columns(5);
+            ImGui.SetColumnWidth(0, 600);
             ImGui.SetColumnWidth(1, 80);
             ImGui.SetColumnWidth(2, 120);
             ImGui.SetColumnWidth(3, 120);
+            ImGui.SetColumnWidth(4, 120);
 
             var sortedList = _shoppingList.ToList();
             sortedList.Sort((a, b) =>
@@ -256,10 +303,17 @@ namespace Diplodocus.Assistants
                 {
                     continue;
                 }
-
-                if (ImGui.Checkbox("##checkbox" + kv.Key + kv.Key, ref hasBoughtEverything) && hasBoughtEverything)
+                
+                if (ImGui.Button("x"))
                 {
-                    MarkItemAsResolved(kv.Key);
+                    _shoppingList.Remove(kv.Key);
+                }
+
+                ImGui.SameLine();
+                if (ImGui.Button("C"))
+                {
+                    ImGui.SetClipboardText(item.Name);
+                    _autocopy = false;
                 }
 
                 var lineColor = ImGuiColors.DalamudGrey;
@@ -278,8 +332,9 @@ namespace Diplodocus.Assistants
                     if (_autocopy && !autocopied && !_autocopySkippedItems.Contains(kv.Key))
                     {
                         ImGui.SameLine();
-                        if (ImGui.ArrowButton("##skip" + kv.Key, ImGuiDir.Down))
+                        if (ImGui.ArrowButton("##skip" + kv.Key, ImGuiDir.Down) || (!skipButtonPressed && _skipButtonPressed))
                         {
+                            _skipButtonPressed = skipButtonPressed;
                             _autocopySkippedItems.Add(kv.Key);
                         }
                         else
@@ -287,6 +342,7 @@ namespace Diplodocus.Assistants
                             if (marketBoardOpen)
                             {
                                 ImGui.SetClipboardText(item.Name);
+                                ImGui.SetScrollHereY();
                             }
 
                             autocopied = true;
@@ -312,20 +368,31 @@ namespace Diplodocus.Assistants
                 }
                 else if (_itemPrices.TryGetValue(kv.Key, out var price))
                 {
-                    ImGui.Text(InventoryLib.FormatPrice(price * amountLeftToBuy));
+                    ImGui.TextColored(lineColor, PricingLib.FormatPrice(price));
                 }
                 else
                 {
-                    ImGui.Text("...");
+                    ImGui.TextColored(lineColor, "...");
                 }
 
                 ImGui.NextColumn();
-                ImGui.Text($"{kv.Value} / {amountInventory}");
+                if (_itemServers.TryGetValue(kv.Key, out var server))
+                {
+                    ImGui.TextColored(lineColor, server);
+                }
+                else
+                {
+                    ImGui.TextColored(lineColor, "...");
+                }
+
+                ImGui.NextColumn();
+                ImGui.TextColored(lineColor, $"{kv.Value} / {amountInventory}");
 
                 ImGui.NextColumn();
             }
 
             ImGui.EndChild();
+            _skipButtonPressed = skipButtonPressed;
         }
 
         private bool CalculateAmounts(ulong itemId, int amountNeeded, out int amountInventory, out int amountLeftToBuy)
@@ -335,7 +402,7 @@ namespace Diplodocus.Assistants
             return amountLeftToBuy <= 0;
         }
 
-        private void RecalculateShoppingList()
+        private void AutocalculateShoppingList()
         {
             _shoppingList.Clear();
 
@@ -347,7 +414,6 @@ namespace Diplodocus.Assistants
                 }
             }
 
-            /*
             foreach (var itemId in _shoppingList.Keys)
             {
                 if (!_itemPrices.ContainsKey(itemId))
@@ -355,7 +421,6 @@ namespace Diplodocus.Assistants
                     FetchPriceInBackground(itemId);
                 }
             }
-            */
         }
 
         private void MarkItemAsResolved(ulong item)
@@ -365,10 +430,12 @@ namespace Diplodocus.Assistants
 
         private async Task FetchPriceInBackground(ulong item)
         {
-            var data = await _universalisClient.GetDCData(item);
+            var data = await _universalis.GetDCData(item);
             if (data != null)
             {
-                _itemPrices[item] = data.averagePrice.Value;
+                _pricingLib.CalculateCurrentBuyingPrice(data, _shoppingList.GetValueOrDefault(item), out var buyingPrice, out var serverName);
+                _itemPrices[item] = buyingPrice;
+                _itemServers[item] = serverName;
             }
         }
     }

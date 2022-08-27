@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -13,8 +14,9 @@ namespace Diplodocus.Universalis
     /// </summary>
     public class UniversalisClient
     {
-        private const    string     Endpoint = "https://universalis.app/api/";
+        private const    string     Endpoint = "https://universalis.app/api";
         private readonly HttpClient httpClient;
+        private          DateTime   _lastRequestTime;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="UniversalisClient"/> class.
@@ -36,12 +38,12 @@ namespace Diplodocus.Universalis
         /// <returns>market board data.</returns>
         public async Task<MarketBoardData?> GetWorldData(ulong itemId)
         {
-            return await this.GetMarketBoardData("Twintania", itemId);
+            return await GetMarketBoardData("Twintania", itemId);
         }
 
         public async Task<MarketBoardData?> GetDCData(ulong itemId)
         {
-            return await this.GetMarketBoardData("Light", itemId);
+            return await GetMarketBoardData("Light", itemId);
         }
 
         /// <summary>
@@ -49,7 +51,7 @@ namespace Diplodocus.Universalis
         /// </summary>
         public void Dispose()
         {
-            this.httpClient.Dispose();
+            httpClient.Dispose();
         }
 
         private async Task<MarketBoardData?> GetMarketBoardData(string worldId, ulong itemId)
@@ -61,38 +63,19 @@ namespace Diplodocus.Universalis
                 itemId -= 1000000;
             }
 
-            HttpResponseMessage result;
             try
             {
-                result = await this.GetMarketBoardDataAsync(worldId, itemId);
-            }
-            catch (Exception ex)
-            {
-                PluginLog.Error($"Failed to retrieve data from Universalis for itemId {itemId} / worldId {worldId}.");
+                var currentData = await GetMarketBoardDataAsync(worldId, itemId);
+                var historyData = await GetMarketBoardHistoryAsync(worldId, itemId);
 
-                return null;
-            }
+                if (currentData == null || historyData == null)
+                {
+                    PluginLog.Error($"Failed to get market data: current {currentData != null}, history {historyData != null}");
+                    return null;
+                }
 
-            PluginLog.Verbose($"universalisResponse={result}");
-
-            if (result.StatusCode != HttpStatusCode.OK)
-            {
-                PluginLog.Error($"Failed to retrieve data from Universalis for itemId {itemId} / worldId {worldId} with HttpStatusCode {result.StatusCode}.");
-                return null;
-            }
-
-            var json = JsonConvert.DeserializeObject<dynamic>(result.Content.ReadAsStringAsync().Result);
-            PluginLog.Verbose($"universalisResponseBody={json}");
-            if (json == null)
-            {
-                PluginLog.Error($"Failed to deserialize Universalis response for itemId {itemId} / worldId {worldId}.");
-                return null;
-            }
-
-            try
-            {
-                var minPriceHq = json.minPriceHQ;
-                var minPriceNq = json.minPriceNQ;
+                var minPriceHq = currentData.minPriceHQ;
+                var minPriceNq = currentData.minPriceNQ;
 
                 double? minPrice = null;
                 if (hq)
@@ -111,15 +94,14 @@ namespace Diplodocus.Universalis
                     }
                 }
 
-                double averagePrice = 0;
+                double averageSoldPrice = 0;
                 double averageSoldPerDay = 0;
-                var lastSell = DateTime.Now;
 
                 // PluginLog.Debug("====================");
 
                 var listings = new List<MarketBoardData.Listing>();
 
-                foreach (var listing in json.listings)
+                foreach (var listing in currentData.listings)
                 {
                     listings.Add(new MarketBoardData.Listing
                     {
@@ -130,47 +112,46 @@ namespace Diplodocus.Universalis
                     });
                 }
 
-                foreach (var historyItem in json.recentHistory)
+                var totalSold = 0;
+                var totalTimespan = TimeSpan.Zero;
+                var allSoldPrices = new List<double>();
+
+                if (historyData.entries != null)
                 {
-                    DateTime sellingDate = DateTime.UnixEpoch + TimeSpan.FromSeconds((double)historyItem.timestamp);
-
-                    var age = lastSell - sellingDate;
-
-                    /*
-                    PluginLog.Debug("Selling date " + sellingDate);
-                    PluginLog.Debug("Age on previous " + age + ", days " + age.TotalDays);
-                    PluginLog.Debug("Per day + " + (1 / age.TotalDays));
-                    */
-
-                    if (age == TimeSpan.Zero)
+                    foreach (var historyItem in historyData.entries)
                     {
-                        averageSoldPerDay += 1;
-                    }
-                    else
-                    {
-                        averageSoldPerDay += 1 / age.TotalDays;
-                    }
+                        DateTime sellingDate = DateTime.UnixEpoch + TimeSpan.FromSeconds((double)historyItem.timestamp);
+                        totalTimespan = DateTime.Now - sellingDate;
+                        totalSold += (int)historyItem.quantity;
+                        allSoldPrices.Add((double)historyItem.pricePerUnit);
 
-                    if (historyItem.hq == hq)
-                    {
-                        // PluginLog.Debug("Adding to average " + historyItem.pricePerUnit);
-                        averagePrice = (averagePrice + (double)historyItem.pricePerUnit) / 2;
+                        // PluginLog.Debug($"History item {historyItem.pricePerUnit}");
+                        if (totalTimespan.TotalDays > 18)
+                        {
+                            if (allSoldPrices.Count > 0)
+                            {
+                                allSoldPrices.Sort();
+                                averageSoldPrice = allSoldPrices[allSoldPrices.Count / 2];
+                            }
+
+                            averageSoldPerDay = (float)totalSold / totalTimespan.TotalDays;
+                            break;
+                        }
                     }
                 }
 
                 var marketBoardData = new MarketBoardData
                 {
+                    id = itemId,
                     lastCheckTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-                    lastUploadTime = json.lastUploadTime?.Value,
+                    lastUploadTime = currentData.lastUploadTime?.Value,
 
-                    minimumPrice = minPrice,
-                    averageMinimumPrice = averagePrice,
+                    currentMinimumPrice = minPrice,
                     averageSoldPerDay = averageSoldPerDay,
-                    averagePrice = hq ? json.averagePriceHQ : json.averagePriceNQ,
-                    averagePriceHQ = json.averagePriceHQ,
-                    averagePriceNQ = json.averagePriceNQ,
+                    averageSoldPrice = averageSoldPrice,
 
                     listings = listings?.ToArray(),
+                    hqPercent = (float)listings.Count() / listings.Count(l => l.hq)
                 };
 
                 PluginLog.Verbose($"marketBoardData={JsonConvert.SerializeObject(marketBoardData)}");
@@ -183,11 +164,64 @@ namespace Diplodocus.Universalis
             }
         }
 
-        private async Task<HttpResponseMessage> GetMarketBoardDataAsync(string worldId, ulong itemId)
+        private async Task<dynamic?> GetMarketBoardDataAsync(string worldId, ulong itemId)
         {
             var request = Endpoint + "/" + worldId + "/" + itemId;
-            PluginLog.Debug($"universalisRequest={request}");
-            return await this.httpClient.GetAsync(new Uri(request));
+            return await MakeRequest(new Uri(request));
+        }
+
+        private async Task<dynamic?> GetMarketBoardHistoryAsync(string worldId, ulong itemId)
+        {
+            var request = Endpoint + $"/v2/history/{worldId}/{itemId}";
+            return await MakeRequest(new Uri(request));
+        }
+
+        private async Task<dynamic?> MakeRequest(Uri uri)
+        {
+            var delta = DateTime.Now - _lastRequestTime;
+            var limit = TimeSpan.FromSeconds(1f / 10);
+            if (delta < limit)
+            {
+                PluginLog.Debug($"Throttling universalis for {limit - delta}");
+                await Task.Delay(limit - delta);
+            }
+
+            for (var attempt = 0; attempt < 10; attempt++)
+            {
+                PluginLog.Debug($"[attempt {attempt}] universalisRequest={uri}");
+                try
+                {
+                    var response = ParseApiResponse(await this.httpClient.GetAsync(uri));
+                    _lastRequestTime = DateTime.Now;
+                    return response;
+                }
+                catch (Exception exception)
+                {
+                    PluginLog.Error($"Universalis request failed: {exception}");
+                    _lastRequestTime = DateTime.Now;
+                }
+            }
+
+            return null;
+        }
+
+        private dynamic? ParseApiResponse(HttpResponseMessage result)
+        {
+            if (result.StatusCode != HttpStatusCode.OK)
+            {
+                throw new Exception($"Invalid response code: {result.StatusCode}");
+            }
+
+            var body = result.Content.ReadAsStringAsync().Result;
+            var json = JsonConvert.DeserializeObject<dynamic>(body);
+            // PluginLog.Verbose($"universalisResponseBody={json}");
+            
+            if (json == null)
+            {
+                throw new Exception($"Failed to parse Universalis response: {body}");
+            }
+
+            return json;
         }
     }
 }

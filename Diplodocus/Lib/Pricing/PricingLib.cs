@@ -1,31 +1,30 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Dalamud.Logging;
+using Diplodocus.Assistants.Storefront;
+using Diplodocus.Lib.GameApi.Inventory;
 using Diplodocus.Lib.GSheets;
-using Lumina.Excel.GeneratedSheets;
+using Diplodocus.Universalis;
 
 namespace Diplodocus.Lib.Pricing
 {
     public sealed class PricingLib : IDisposable
     {
-        public struct PricingData
+        public struct CalculatedPrice
         {
-            public Item   item;
-            public double averageCost;
-            public double averagePrice;
-            public double averageSpeed;
+            public long   price;
+            public string source;
         }
 
-        private readonly GSheetsClient _gSheetsClient;
-
-        public float MinProfit = 0.05f;
+        private readonly GSheetsClient  _gSheetsClient;
+        private readonly StorefrontData _storefrontData;
 
         private IReadOnlyList<GSheetsClient.Row> _mbData;
 
-        public PricingLib(GSheetsClient gSheetsClient)
+        public PricingLib(GSheetsClient gSheetsClient, StorefrontData storefrontData)
         {
             _gSheetsClient = gSheetsClient;
+            _storefrontData = storefrontData;
 
             UpdateData();
         }
@@ -42,34 +41,97 @@ namespace Diplodocus.Lib.Pricing
             }
         }
 
-        public void CalculatePrice(long worldMin, long dcMin, long dcAvg, float minFraction, out long price, out string priceSource)
+        public void CalculateCurrentBuyingPrice(MarketBoardData data, int neededAmount, out double averagePrice, out string serverName)
         {
-            var worldMinFraction = (float)worldMin / dcAvg;
-            if (worldMinFraction < minFraction)
+            var totalAveragePrice = 0.0;
+
+            var totalAveragePriceCount = 0;
+            var servers = new Dictionary<string, int>();
+            foreach (var listing in data.listings)
             {
-                priceSource = $"average price, world too low";
-                price = dcAvg;
-            }
-            else if (dcAvg < worldMin - 1)
-            {
-                priceSource = $"average price, world too high";
-                price = dcAvg;
-            }
-            else
-            {
-                priceSource = $"world undercut";
-                price = worldMin - 1;
+                servers[listing.worldName] = servers.GetValueOrDefault(listing.worldName) + listing.amount;
+
+                if (totalAveragePriceCount < neededAmount * 1.5)
+                {
+                    totalAveragePriceCount += listing.amount;
+                    totalAveragePrice += listing.price * listing.amount;
+                }
             }
 
-            var dcMinimumFraction = (float)dcMin / dcAvg;
-            if (dcMinimumFraction > minFraction && dcMin < price)
+            serverName = "";
+            averagePrice = totalAveragePrice / totalAveragePriceCount;
+
+            foreach (var kv in servers)
             {
-                priceSource = $"dc undercut";
-                price = dcMin - 1;
+                if (kv.Value > neededAmount * 1.5)
+                {
+                    serverName = kv.Key;
+                    break;
+                }
+            }
+        }
+
+        public double CalculateAverageBuyingPrice(MarketBoardData data)
+        {
+            return data.averageSoldPrice.Value;
+        }
+
+        public void CalculateCurrentSellingPrice(long currentWorldMin, MarketBoardData data, out long price, out string source)
+        {
+            var maxPrice = (long)(CalculateAverageSellingPrice(data) * 1.5f);
+            var minPrice = (long)(_storefrontData.FindMinimumPrice(data.id) ?? 0);
+
+            if (minPrice == 0)
+            {
+                minPrice = (long)(maxPrice * 0.65f);
             }
 
-            PluginLog.Log($"Checking average - {worldMin - 1} world min against avg DC {dcAvg}, min DC {dcMin}");
-            PluginLog.Log($"world min fraction {worldMinFraction}, dc min fraction {dcMinimumFraction}, min fraction {minFraction}");
+            var worldUndercutPrice = currentWorldMin - 1;
+            if (worldUndercutPrice > minPrice && worldUndercutPrice < maxPrice)
+            {
+                price = worldUndercutPrice;
+                source = PriceSourceString($"wou", price, minPrice, maxPrice);
+                return;
+            }
+
+            var dcUndercut = (long)(data.currentMinimumPrice ?? 0.0) - 1;
+            if (dcUndercut > minPrice && dcUndercut < maxPrice)
+            {
+                price = dcUndercut;
+                source = PriceSourceString("dcu", price, minPrice, maxPrice);
+                return;
+            }
+
+            if (worldUndercutPrice < minPrice || dcUndercut < minPrice)
+            {
+                price = minPrice;
+                source = PriceSourceString("min", price, minPrice, maxPrice);
+                return;
+            }
+
+            price = maxPrice;
+            source = PriceSourceString("avg", price, minPrice, maxPrice);
+        }
+
+        public double CalculateAverageSellingPrice(MarketBoardData data)
+        {
+            return data.averageSoldPrice.Value * 0.9f;
+        }
+        
+        public static string FormatPrice(double num)
+        {
+            if (num >= 100000)
+                return FormatPrice(num / 1000) + "K";
+
+            if (num >= 10000)
+                return (num / 1000D).ToString("0.#") + "K";
+
+            return num.ToString("#,0");
+        }
+
+        private static string PriceSourceString(string pref, long price, long min, long max)
+        {
+            return $"{pref} {FormatPrice(min)} ={FormatPrice(price)}= {FormatPrice(max)}";
         }
     }
 }

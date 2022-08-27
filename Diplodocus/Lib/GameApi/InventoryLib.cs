@@ -129,16 +129,5 @@ namespace Diplodocus.Lib.GameApi.Inventory
             var container = _inventoryManager->GetInventoryContainer(t);
             return container->Items[idx];
         }
-
-        public static string FormatPrice(double num)
-        {
-            if (num >= 100000)
-                return FormatPrice(num / 1000) + "K";
-
-            if (num >= 10000)
-                return (num / 1000D).ToString("0.#") + "K";
-
-            return num.ToString("#,0");
-        }
     }
 }

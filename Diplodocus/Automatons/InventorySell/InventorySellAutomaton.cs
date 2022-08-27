@@ -1,5 +1,5 @@
 ﻿using Diplodocus.Lib.Automaton;
-using Diplodocus.Lib.GameApi.Inventory;
+using Diplodocus.Lib.Pricing;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
 
@@ -7,10 +7,11 @@ namespace Diplodocus.Automatons.InventorySell
 {
     public sealed class InventorySellAutomaton : BaseAutomaton<InventorySellAutomatonScript, InventorySellAutomatonScript.Settings>
     {
-        private int   _minPrice   = 1000;
-        private int   _count      = 1;
-        private float _minFraction = 0.7f;
-        private bool  _dcPrices   = true;
+        private int   _minPrice    = 1000;
+        private int   _count       = 30;
+        private float _minFraction = 0.8f;
+        private float _maxFraction = 1.35f;
+        private bool  _dcPrices    = true;
 
         public InventorySellAutomaton(InventorySellAutomatonScript sellAutomatonScript) : base(sellAutomatonScript)
         {
@@ -29,6 +30,10 @@ namespace Diplodocus.Automatons.InventorySell
             ImGui.Text("Minimum fraction:");
             ImGui.SameLine();
             ImGui.InputFloat("##is_minfraction", ref _minFraction);
+            
+            ImGui.Text("Maximum fraction:");
+            ImGui.SameLine();
+            ImGui.InputFloat("##is_maxfraction", ref _maxFraction);
 
             ImGui.Checkbox("##isa_averageprice", ref _dcPrices);
             ImGui.SameLine();
@@ -46,8 +51,8 @@ namespace Diplodocus.Automatons.InventorySell
             {
                 minimumPrice = _minPrice,
                 itemCount = _count,
-                useCrossworld = _dcPrices,
                 minimumFraction = _minFraction,
+                maximumFraction = _maxFraction,
 
                 OnItemSkipped = OnItemSkipped,
                 OnItemSelling = OnItemSelling,
@@ -57,18 +62,16 @@ namespace Diplodocus.Automatons.InventorySell
 
         private void OnItemSkipped(Item arg1, string arg2)
         {
-            Log($"SKIP {arg1.Name} - {arg2}.\n");
+            Log($"SKIP {arg1.Name} - {arg2}.");
         }
 
-        private void OnItemSelling(Item arg1, long price, long averagePrice, string priceSource)
+        private void OnItemSelling(Item arg1, long price, string priceSource)
         {
-            var fraction = (float)price / averagePrice;
-            Log($"SELLING [{fraction:F}] {arg1.Name} ({InventoryLib.FormatPrice(price)} - {priceSource}).");
+            Log($"{priceSource}    {arg1.Name}");
         }
 
         private void OnResult(int count, long totalSum)
         {
-            _count = _count - count;
             Log($"Script completed (did {count}), total sum {totalSum}.");
         }
     }

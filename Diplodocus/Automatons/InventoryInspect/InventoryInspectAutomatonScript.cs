@@ -38,20 +38,20 @@ namespace Diplodocus.Automatons.InventoryInspect
                 }
 
                 var data = await _universalis.GetWorldData(item.id);
-                if (data == null || data.minimumPrice == 0)
+                if (data == null || data.currentMinimumPrice == 0)
                 {
                     _settings.OnItemSkipped?.Invoke(item.type, "no market data");
                     continue;
                 }
 
-                if (data.minimumPrice < item.type.PriceLow)
+                if (data.currentMinimumPrice < item.type.PriceLow)
                 {
-                    _settings.OnItemSkipped?.Invoke(item.type, $"vendor price higher ({data.minimumPrice} vs {item.type.PriceLow})");
+                    _settings.OnItemSkipped?.Invoke(item.type, $"vendor price higher ({data.currentMinimumPrice} vs {item.type.PriceLow})");
                     continue;
                 }
 
-                var totalPrice = data.minimumPrice * item.amount;
-                PluginLog.Debug($"Price for item {item.type.Name} - {totalPrice} ({data.minimumPrice}, amount {item.amount}");
+                var totalPrice = data.currentMinimumPrice * item.amount;
+                PluginLog.Debug($"Price for item {item.type.Name} - {totalPrice} ({data.currentMinimumPrice}, amount {item.amount}");
 
                 if (totalPrice < _settings.minimumPrice)
                 {
@@ -59,7 +59,7 @@ namespace Diplodocus.Automatons.InventoryInspect
                     continue;
                 }
 
-                _settings.OnItemSelling?.Invoke(item.type, (long)totalPrice, 0, "");
+                _settings.OnItemSelling?.Invoke(item.type, (long)totalPrice, "");
                 sellingCount++;
                 sellingSum += (long)totalPrice;
             }

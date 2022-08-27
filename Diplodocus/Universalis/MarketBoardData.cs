@@ -10,16 +10,15 @@ namespace Diplodocus.Universalis
             public bool   hq;
         }
 
-        public long lastCheckTime;
-        public long lastUploadTime;
+        public ulong id;
+        public long  lastCheckTime;
+        public long  lastUploadTime;
 
-        public double? minimumPrice;
-        public double? averageMinimumPrice;
+        public double? currentMinimumPrice;
         public double? averageSoldPerDay;
+        public double? averageSoldPrice;
 
-        public double? averagePrice;
-        public double? averagePriceHQ;
-        public double? averagePriceNQ;
+        public float hqPercent;
 
         public Listing[]? listings;
     }

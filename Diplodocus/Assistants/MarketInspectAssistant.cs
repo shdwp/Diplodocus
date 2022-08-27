@@ -10,6 +10,7 @@ using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Diplodocus.Lib.Assistant;
 using Diplodocus.Lib.GameApi;
 using Diplodocus.Lib.GameApi.Inventory;
+using Diplodocus.Lib.Pricing;
 using Diplodocus.Universalis;
 using Lumina.Excel.GeneratedSheets;
 
@@ -123,7 +124,7 @@ namespace Diplodocus.Assistants
             msg.Append(new TextPayload(" min "));
             msg.Append(new UIGlowPayload(GameColors.Red));
             msg.Append(new UIForegroundPayload(GameColors.Red));
-            msg.Append(new TextPayload(InventoryLib.FormatPrice(data.minimumPrice.Value) + (char)SeIconChar.Gil));
+            msg.Append(new TextPayload(PricingLib.FormatPrice(data.currentMinimumPrice.Value) + (char)SeIconChar.Gil));
             msg.Append(UIForegroundPayload.UIForegroundOff);
             msg.Append(UIGlowPayload.UIGlowOff);
 
@@ -132,14 +133,9 @@ namespace Diplodocus.Assistants
                 msg.Append(new TextPayload(" (" + data.listings.First().worldName + ")"));
             }
 
-            msg.Append(new TextPayload(", avgm "));
-            msg.Append(new UIGlowPayload(GameColors.Orange));
-            msg.Append(new TextPayload($"{InventoryLib.FormatPrice(data.averageMinimumPrice.Value)}{(char)SeIconChar.Gil}"));
-            msg.Append(UIGlowPayload.UIGlowOff);
-
             msg.Append(new TextPayload(", avgh "));
             msg.Append(new UIGlowPayload(GameColors.Orange));
-            msg.Append(new TextPayload($"{InventoryLib.FormatPrice(data.averagePrice.Value)}{(char)SeIconChar.Gil}"));
+            msg.Append(new TextPayload($"{PricingLib.FormatPrice(data.averageSoldPrice.Value)}{(char)SeIconChar.Gil}"));
             msg.Append(UIGlowPayload.UIGlowOff);
 
             msg.Append(new TextPayload(", spd "));
@@ -153,7 +149,7 @@ namespace Diplodocus.Assistants
                 {
                     msg.Append(new NewLinePayload());
                     msg.Append(new UIForegroundPayload(GameColors.Red));
-                    msg.Append(new TextPayload(InventoryLib.FormatPrice(listing.price) + (char)SeIconChar.Gil));
+                    msg.Append(new TextPayload(PricingLib.FormatPrice(listing.price) + (char)SeIconChar.Gil));
                     msg.Append(UIForegroundPayload.UIForegroundOff);
                     var hqStr = listing.hq ? (char)SeIconChar.HighQuality : ' ';
                     msg.Append(new TextPayload($"       {hqStr}{listing.amount}       "));

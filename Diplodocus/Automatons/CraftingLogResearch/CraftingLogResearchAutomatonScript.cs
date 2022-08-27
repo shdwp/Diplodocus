@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 using Dalamud.Game.Gui;
@@ -8,6 +9,7 @@ using Diplodocus.Lib.Automaton;
 using Diplodocus.Lib.GameApi;
 using Diplodocus.Lib.GameApi.Inventory;
 using Diplodocus.Lib.GameControl;
+using Diplodocus.Lib.Pricing;
 using Diplodocus.Universalis;
 
 namespace Diplodocus.Automatons.CraftingLogResearch
@@ -20,6 +22,7 @@ namespace Diplodocus.Automatons.CraftingLogResearch
         private readonly HIDControl        _hidControl;
         private readonly GameGui           _gameGui;
         private readonly CraftingLib       _craftingLib;
+        private readonly PricingLib        _pricingLib;
 
         protected override bool ShouldDelayStart => true;
 
@@ -29,7 +32,7 @@ namespace Diplodocus.Automatons.CraftingLogResearch
             public Action<string> OnResult;
         }
 
-        public CraftingLogResearchAutomatonScript(AtkControl atkControl, HIDControl hidControl, GameGui gameGui, CraftingLib craftingLib, UniversalisClient universalis, InventoryLib inventoryLib)
+        public CraftingLogResearchAutomatonScript(AtkControl atkControl, HIDControl hidControl, GameGui gameGui, CraftingLib craftingLib, UniversalisClient universalis, InventoryLib inventoryLib, PricingLib pricingLib)
         {
             _atkControl = atkControl;
             _hidControl = hidControl;
@@ -37,6 +40,7 @@ namespace Diplodocus.Automatons.CraftingLogResearch
             _craftingLib = craftingLib;
             _universalis = universalis;
             _inventoryLib = inventoryLib;
+            _pricingLib = pricingLib;
         }
 
         public override void Dispose()
@@ -82,6 +86,15 @@ namespace Diplodocus.Automatons.CraftingLogResearch
         private async Task PerformInspection(int section, ulong itemId)
         {
             var itemType = _inventoryLib.GetItemType(itemId);
+            if (itemType.ClassJobCategory.Value.RowId > 1)
+            {
+                return;
+            }
+
+            if (itemType.IsUntradable)
+            {
+                return;
+            }
 
             var resultMarketData = await _universalis.GetDCData(itemId);
             if (resultMarketData == null)
@@ -96,20 +109,19 @@ namespace Diplodocus.Automatons.CraftingLogResearch
                 PluginLog.Warning($"MB ingredients data null for " + itemId);
                 return;
             }
-
+            
+            var requiredLevel = _craftingLib.GetRequiredLevel(itemId);
+            var classJobCategory = _craftingLib.GetClassJobCategory(itemId);
             var totalHQCost = ingredientsData.Sum(d => d.priceTotalHQ);
             var totalNQCost = ingredientsData.Sum(d => d.priceTotalNQ);
-            var avgProfit = resultMarketData.averagePrice - totalNQCost;
 
             _settings.OnResult(
                 $"{section}\t" +
                 $"{itemType.Name}\t" +
                 $"{resultMarketData.averageSoldPerDay}\t" +
                 $"{totalNQCost}\t" +
-                $"{resultMarketData.averagePrice}\t" +
-                $"{avgProfit}\t" +
-                $"{resultMarketData.averagePriceNQ}\t" +
-                $"{resultMarketData.averagePriceHQ}\t" +
+                $"{resultMarketData.averageSoldPrice}\t" +
+                $"{requiredLevel}\t{classJobCategory}" +
                 "\n"
             );
         }

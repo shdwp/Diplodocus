@@ -32,7 +32,14 @@ namespace Diplodocus.Lib.Automaton
 
             if (_run)
             {
-                await StartImpl();
+                try
+                {
+                    await StartImpl();
+                }
+                catch (Exception exception)
+                {
+                    _settings.OnScriptFailed?.Invoke("Exception: " + exception);
+                }
             }
         }
 

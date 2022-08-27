@@ -13,9 +13,10 @@ namespace Diplodocus.Lib.GameControl
         public static string Inventory        = "InventoryExpansion";
         public static string CraftingLog      = "RecipeNote";
         public static string Synthesis        = "Synthesis";
+        public static string Retainers        = "RetainerList";
         public static string RetainerSellList = "RetainerSellList";
         public static string RetainerSell     = "RetainerSell";
-        public static string MarketBoard = "ItemSearch";
+        public static string MarketBoard      = "ItemSearch";
 
         public AtkControl(AtkLib atkLib)
         {
@@ -29,6 +30,11 @@ namespace Diplodocus.Lib.GameControl
         public bool IsInventoryWindowFocused()
         {
             return _atkLib.IsFocused("InventoryExpansion");
+        }
+
+        public bool IsRetainersWindowFocused()
+        {
+            return _atkLib.IsFocused("RetainerList");
         }
 
         public bool IsRetainerMarketWindowFocused()
@@ -69,6 +75,7 @@ namespace Diplodocus.Lib.GameControl
                     if (IsWindowFocused(window))
                     {
                         PluginLog.Debug($"Wait for {window} success");
+                        Thread.Sleep(128);
                         return true;
                     }
 

@@ -5,26 +5,25 @@ using Diplodocus.Lib.Assistant;
 using Diplodocus.Lib.GameApi;
 using Diplodocus.Lib.GameApi.Inventory;
 using Diplodocus.Lib.GameControl;
+using Diplodocus.Lib.Pricing;
 using ImGuiNET;
 
 namespace Diplodocus.Assistants.Storefront
 {
     public sealed class StorefrontAssistant : IAssistant
     {
-        private RetainerControl       _retainerControl;
-        private InventoryLib          _inventoryLib;
-        private CraftingListAssistant _craftingListAssistant;
-        private CraftingLib           _craftingLib;
+        private readonly RetainerControl       _retainerControl;
+        private readonly CraftingListAssistant _craftingListAssistant;
+        private readonly CraftingLib           _craftingLib;
 
         public bool Open = false;
 
-        private StorefrontData _data;
+        public StorefrontData Data;
 
-        public StorefrontAssistant(RetainerControl retainerControl, InventoryLib inventoryLib, StorefrontData data, CraftingListAssistant craftingListAssistant, CraftingLib craftingLib)
+        public StorefrontAssistant(RetainerControl retainerControl, StorefrontData data, CraftingListAssistant craftingListAssistant, CraftingLib craftingLib)
         {
             _retainerControl = retainerControl;
-            _inventoryLib = inventoryLib;
-            _data = data;
+            Data = data;
             _craftingListAssistant = craftingListAssistant;
             _craftingLib = craftingLib;
         }
@@ -44,19 +43,19 @@ namespace Diplodocus.Assistants.Storefront
             {
                 if (ImGui.Button("Fetch"))
                 {
-                    _data.FetchData();
+                    Data.FetchData();
                 }
 
                 ImGui.SameLine();
                 if (ImGui.Button("Add all"))
                 {
-                    foreach (var item in _data.Items)
+                    foreach (var item in Data.Items)
                     {
                         var itemId = InventoryLib.EncodeItemId(item.Item1, item.Item2);
                         var retainerCount = _retainerControl.CountInRetainerMarkets(itemId);
                         var left = item.Item3 - retainerCount;
-
-                        if (!_craftingListAssistant.CheckIfOnCraftingList(item.Item1, item.Item3))
+                        
+                        if (left > 0 && !_craftingListAssistant.CheckIfOnCraftingList(item.Item1, item.Item3))
                         {
                             PluginLog.Debug($"Adding {item.Item1.Name} to crafting list");
                             _craftingListAssistant.AddCraft(item.Item1, _craftingLib.GetIngredients(item.Item1.RowId), left);
@@ -64,7 +63,7 @@ namespace Diplodocus.Assistants.Storefront
                     }
                 }
 
-                ImGui.Columns(4);
+                ImGui.Columns(5);
                 ImGui.SetColumnWidth(1, 100);
                 ImGui.SetColumnWidth(2, 100);
                 ImGui.SetColumnWidth(3, 200);
@@ -74,11 +73,14 @@ namespace Diplodocus.Assistants.Storefront
                 ImGui.NextColumn();
                 ImGui.Text("Current");
                 ImGui.NextColumn();
+                ImGui.Text("MinPrice");
+                ImGui.NextColumn();
                 ImGui.NextColumn();
 
                 var totalSlots = 0;
                 var totalStorefront = 0;
-                foreach (var item in _data.Items)
+                var totalSelling = 0;
+                foreach (var item in Data.Items)
                 {
                     var itemId = InventoryLib.EncodeItemId(item.Item1, item.Item2);
                     var retainerCount = _retainerControl.CountInRetainerMarkets(itemId);
@@ -90,6 +92,8 @@ namespace Diplodocus.Assistants.Storefront
                     ImGui.Text(item.Item3.ToString());
                     ImGui.NextColumn();
                     ImGui.Text(retainerCount.ToString());
+                    ImGui.NextColumn();
+                    ImGui.Text(PricingLib.FormatPrice(item.Item4));
                     ImGui.NextColumn();
 
                     if (onCraftingList)
@@ -110,10 +114,17 @@ namespace Diplodocus.Assistants.Storefront
                     totalStorefront += retainerCount;
                 }
 
+                foreach (var kv in _retainerControl.EnumerateRetainerMarkets())
+                {
+                    totalSelling += kv.Value.amount;
+                }
+
                 ImGui.NextColumn();
                 ImGui.Text(totalSlots.ToString());
                 ImGui.NextColumn();
                 ImGui.Text(totalStorefront.ToString());
+                ImGui.NextColumn();
+                ImGui.Text(totalSelling.ToString());
 
                 ImGui.End();
             }

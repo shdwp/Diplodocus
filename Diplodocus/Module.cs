@@ -19,16 +19,20 @@ using Dalamud.IoC;
 using Dalamud.Plugin;
 using Diplodocus.Assistants;
 using Diplodocus.Assistants.Storefront;
+using Diplodocus.Automatons.AntiAFK;
 using Diplodocus.Automatons.CraftingLogResearch;
+using Diplodocus.Automatons.FeatureTest;
 using Diplodocus.Automatons.InventoryInspect;
 using Diplodocus.Automatons.InventorySell;
 using Diplodocus.Automatons.MacroCrafting;
 using Diplodocus.Automatons.MarketReturn;
+using Diplodocus.Automatons.RetainerInventory;
 using Diplodocus.Automatons.Undercut;
 using Diplodocus.Lib.GameApi;
 using Diplodocus.Lib.GameApi.Inventory;
 using Diplodocus.Lib.GameControl;
 using Diplodocus.Lib.Pricing;
+using Diplodocus.Universalis;
 using Ninject;
 using Ninject.Modules;
 
@@ -98,10 +102,12 @@ namespace Diplodocus
 
             BindSingleton<App>();
             BindSingleton<AutomatonsWindowUI>();
+            BindSingleton<UniversalisClient>();
 
             BindSingleton<InventoryLib>();
             BindSingleton<AtkLib>();
             BindSingleton<PricingLib>();
+            BindSingleton<Hotkeys>();
 
             BindSingleton<AtkControl>();
             BindSingleton<CraftingUIControl>();
@@ -109,6 +115,7 @@ namespace Diplodocus
             BindSingleton<RetainerSellControl>();
             BindSingleton<CraftingLib>();
             BindSingleton<RetainerControl>();
+            BindSingleton<StorefrontData>();
 
             BindAutomaton<MacroCraftingAutomaton, MacroCraftingAutomatonScript>();
             BindAutomaton<UndercutAutomaton, UndercutAutomatonScript>();
@@ -116,6 +123,9 @@ namespace Diplodocus
             BindAutomaton<InventorySellAutomaton, InventorySellAutomatonScript>();
             BindAutomaton<MarketReturnAutomaton, MarketReturnAutomatonScript>();
             BindAutomaton<CraftingLogResearchAutomaton, CraftingLogResearchAutomatonScript>();
+            BindAutomaton<RetainerInventoryAutomaton, RetainerInventoryAutomatonScript>();
+            BindAutomaton<AntiAFKAutomaton, AntiAFKAutomatonScript>();
+            BindAutomaton<FeatureTestAutomaton, FeatureTestAutomatonScript>();
 
             BindAssistant<MarketInspectAssistant>();
             BindAssistant<CraftingLogInspectAssistant>();

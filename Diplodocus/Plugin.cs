@@ -1,6 +1,5 @@
 ﻿using Dalamud.Game;
 using Dalamud.Game.Gui;
-using Dalamud.Logging;
 using Dalamud.Plugin;
 using Diplodocus.Lib.GameApi;
 using Ninject;
@@ -12,7 +11,7 @@ namespace Diplodocus
     {
         public string Name => "Diplodocus";
 
-        private readonly App        _app;
+        private readonly App _app;
 
         public Plugin(DalamudPluginInterface pluginInterface, GameGui gameGui, SigScanner sigScanner)
         {

@@ -19,17 +19,30 @@ namespace Diplodocus.Assistants.Storefront
         private readonly string _id        = "1-KA1DFzaiJOCdFfTUdNKRaTUUXnoh3bef_erklXjN98";
         private readonly string _sheetName = "MBStorefront";
 
-        public List<(Item, bool, int)> Items;
+        public List<(Item, bool, int, int)> Items;
 
         public StorefrontData(InventoryLib inventoryLib)
         {
             _inventoryLib = inventoryLib;
-            Items = new List<(Item, bool, int)>();
+            Items = new();
 
-            this._client = new HttpClient
+            _client = new HttpClient
             {
                 Timeout = TimeSpan.FromSeconds(5),
             };
+        }
+
+        public int? FindMinimumPrice(ulong itemId)
+        {
+            foreach (var item in Items)
+            {
+                if (item.Item1.RowId == itemId)
+                {
+                    return item.Item4;
+                }
+            }
+
+            return null;
         }
 
         public async Task FetchData()
@@ -41,7 +54,7 @@ namespace Diplodocus.Assistants.Storefront
             PluginLog.Debug(url);
 
             var response = await _client.GetStringAsync(url);
-            var newItems = new List<(Item, bool, int)>();
+            var newItems = new List<(Item, bool, int, int)>();
 
             foreach (var rowString in response.Split('\n'))
             {
@@ -54,8 +67,9 @@ namespace Diplodocus.Assistants.Storefront
 
                 var itemNameString = rowData[1];
                 var itemCountString = rowData[6];
-
-                if (itemNameString.Any() && itemCountString.Any())
+                var itemMinimumPrice = rowData[10];
+                
+                if (itemNameString.Any() && itemCountString.Any() && itemMinimumPrice.Any())
                 {
                     var itemType = _inventoryLib.GetItemType(itemNameString);
                     if (itemType == null)
@@ -67,7 +81,7 @@ namespace Diplodocus.Assistants.Storefront
 
                     if (itemCount > 0)
                     {
-                        newItems.Add((itemType, false, itemCount));
+                        newItems.Add((itemType, false, itemCount, int.Parse(itemMinimumPrice)));
                     }
                 }
             }

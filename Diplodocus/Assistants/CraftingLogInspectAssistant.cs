@@ -12,6 +12,7 @@ using Diplodocus.Lib.Assistant;
 using Diplodocus.Lib.GameApi;
 using Diplodocus.Lib.GameApi.Inventory;
 using Diplodocus.Lib.GameControl;
+using Diplodocus.Lib.Pricing;
 using Diplodocus.Universalis;
 using Lumina.Excel.GeneratedSheets;
 
@@ -99,12 +100,14 @@ namespace Diplodocus.Assistants
 
             if (_keyState[VirtualKey.F] && _lastItemInspected != _gameGui.HoveredItem)
             {
+                PluginLog.Debug("Inspecting item");
                 _lastItemInspected = _gameGui.HoveredItem;
                 var _ = PerformHoveredItemCraftingInspection(type);
             }
 
             if (!_keyState[VirtualKey.T] && _shoppingListAddHotkeyState)
             {
+                PluginLog.Debug("Adding to shopping list");
                 var _ = PerformAddToShoppingList(type);
             }
 
@@ -147,7 +150,7 @@ namespace Diplodocus.Assistants
         {
             var resultMarketData = await _universalis.GetDCData(resultType.RowId);
             var ingredientsData = await _craftingLib.GetIngredientsCost(resultType.RowId);
-
+            
             var totalHQCost = ingredientsData.Sum(d => d.priceTotalHQ);
             var totalNQCost = ingredientsData.Sum(d => d.priceTotalNQ);
 
@@ -155,9 +158,7 @@ namespace Diplodocus.Assistants
 
             if (resultMarketData != null)
             {
-                var nqnqProfit = resultMarketData.averagePriceNQ - totalNQCost;
-                var hqhqProfit = resultMarketData.averagePriceHQ - totalHQCost;
-                var nqhqProfit = resultMarketData.averagePriceHQ - totalNQCost;
+                var nqnqProfit = resultMarketData.averageSoldPrice - totalNQCost;
 
                 msg.Append(new UIGlowPayload(GameColors.Blue));
                 msg.Append(new TextPayload($"{resultMarketData.averageSoldPerDay.Value:F1}{(char)SeIconChar.Experience}"));
@@ -165,9 +166,10 @@ namespace Diplodocus.Assistants
 
                 msg.Append(new UIGlowPayload(nqnqProfit > 0 ? GameColors.Green : GameColors.Red));
                 msg.Append(new TextPayload(" " + (char)SeIconChar.Square));
-                msg.Append(new TextPayload($" {InventoryLib.FormatPrice(nqnqProfit.Value)}{(char)SeIconChar.Gil}"));
+                msg.Append(new TextPayload($" {PricingLib.FormatPrice(nqnqProfit.Value)}{(char)SeIconChar.Gil}"));
                 msg.Append(UIGlowPayload.UIGlowOff);
 
+                /*
                 msg.Append(new UIGlowPayload(hqhqProfit > 0 ? GameColors.Green : GameColors.Red));
                 msg.Append(new TextPayload(" " + (char)SeIconChar.Circle));
                 msg.Append(new TextPayload($" {InventoryLib.FormatPrice(hqhqProfit.Value)}{(char)SeIconChar.Gil}"));
@@ -177,14 +179,15 @@ namespace Diplodocus.Assistants
                 msg.Append(new TextPayload(" " + (char)SeIconChar.Hexagon));
                 msg.Append(new TextPayload($" {InventoryLib.FormatPrice(nqhqProfit.Value)}{(char)SeIconChar.Gil}"));
                 msg.Append(UIGlowPayload.UIGlowOff);
+                */
             }
 
             msg.Append(new UIForegroundPayload(GameColors.Orange));
-            msg.Append(new TextPayload($" {InventoryLib.FormatPrice(totalNQCost)}{(char)SeIconChar.Gil}"));
+            msg.Append(new TextPayload($" {PricingLib.FormatPrice(totalNQCost)}{(char)SeIconChar.Gil}"));
             msg.Append(UIForegroundPayload.UIForegroundOff);
 
             msg.Append(new UIForegroundPayload(GameColors.Green));
-            msg.Append(new TextPayload($" {InventoryLib.FormatPrice(resultMarketData.averagePriceNQ.Value)}{(char)SeIconChar.Gil}"));
+            msg.Append(new TextPayload($" {PricingLib.FormatPrice(resultMarketData.averageSoldPrice.Value)}{(char)SeIconChar.Gil}"));
             msg.Append(UIForegroundPayload.UIForegroundOff);
 
             msg.Append(new ItemPayload(resultType.RowId, false));

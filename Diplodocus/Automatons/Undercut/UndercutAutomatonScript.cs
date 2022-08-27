@@ -1,9 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Dalamud.Data;
 using Dalamud.Game.Gui;
 using Dalamud.Logging;
-using Diplodocus.Automatons.InventorySell;
+using Diplodocus.Assistants.Storefront;
 using Diplodocus.Lib.Automaton;
 using Diplodocus.Lib.GameControl;
 using Diplodocus.Lib.Pricing;
@@ -13,19 +15,19 @@ using Lumina.Excel.GeneratedSheets;
 
 namespace Diplodocus.Automatons.Undercut
 {
-    public sealed class UndercutAutomatonScript: BaseAutomatonScript<UndercutAutomatonScript.UndercutSettings>
+    public sealed class UndercutAutomatonScript : BaseAutomatonScript<UndercutAutomatonScript.UndercutSettings>
     {
         public class UndercutSettings : BaseAutomatonScriptSettings
         {
-            public bool  useCrossworld;
-            public float minimumFraction;
+            public bool  dryRun;
+            public int   retainerFirst;
+            public int   retainerLast;
 
-            public Action<Item, long, long, string> OnPriceUpdated;
+            public Action<Item, long, string> OnPriceUpdated;
         }
 
         private readonly GameGui             _gameGui;
-        private readonly UniversalisClient   _universalis;
-        private readonly PricingLib          _pricingLib;
+        private readonly StorefrontAssistant _storefrontAssistant;
         private readonly HIDControl          _hidControl;
         private readonly RetainerSellControl _retainerSellControl;
         private readonly RetainerControl     _retainerControl;
@@ -33,15 +35,14 @@ namespace Diplodocus.Automatons.Undercut
 
         private ExcelSheet<Item> _itemSheet;
 
-        public UndercutAutomatonScript(HIDControl hidControl, RetainerSellControl retainerSellControl, AtkControl atkControl, DataManager dataManager, GameGui gameGui, RetainerControl retainerControl, UniversalisClient universalis, PricingLib pricingLib)
+        public UndercutAutomatonScript(HIDControl hidControl, RetainerSellControl retainerSellControl, AtkControl atkControl, DataManager dataManager, GameGui gameGui, RetainerControl retainerControl, UniversalisClient universalis, PricingLib pricingLib, StorefrontAssistant storefrontAssistant)
         {
             _hidControl = hidControl;
             _retainerSellControl = retainerSellControl;
             _atkControl = atkControl;
             _gameGui = gameGui;
             _retainerControl = retainerControl;
-            _universalis = universalis;
-            _pricingLib = pricingLib;
+            _storefrontAssistant = storefrontAssistant;
             _itemSheet = dataManager.GameData.GetExcelSheet<Item>();
         }
 
@@ -53,10 +54,21 @@ namespace Diplodocus.Automatons.Undercut
 
         protected override bool ValidateStart()
         {
-            if (!_atkControl.IsRetainerMarketWindowFocused())
+            if (_settings.retainerLast == 1)
             {
-                _settings.OnScriptFailed?.Invoke("market window not focused");
-                return false;
+                if (!_atkControl.IsRetainerMarketWindowFocused())
+                {
+                    _settings.OnScriptFailed?.Invoke("retainer market window not focused");
+                    return false;
+                }
+            }
+            else
+            {
+                if (!_atkControl.IsRetainersWindowFocused())
+                {
+                    _settings.OnScriptFailed?.Invoke("retainer window not focused");
+                    return false;
+                }
             }
 
             return true;
@@ -64,95 +76,86 @@ namespace Diplodocus.Automatons.Undercut
 
         public override async Task StartImpl()
         {
-            await _hidControl.CursorDown();
+            _retainerSellControl.ResetPricingState();
+            await _hidControl.CursorLeft();
+            await _storefrontAssistant.Data.FetchData();
 
-            var amount = _retainerControl.CurrentMarketItemCount;
-            for (var i = 0; i < amount; i++)
+            for (var retainerIdx = _settings.retainerFirst; retainerIdx < _settings.retainerLast; retainerIdx++)
             {
                 if (!_run)
                 {
+                    _settings.OnScriptFailed("Stopped");
                     return;
                 }
 
-                await _hidControl.CursorDown();
-                var itemHq = _gameGui.HoveredItem > 1000000;
-                var itemId = itemHq ? _gameGui.HoveredItem - 1000000 : _gameGui.HoveredItem;
-                if (itemId == 0)
+                if (_settings.dryRun)
                 {
-                    PluginLog.Error("Listing skipped - item hover 0!");
+                    await _retainerControl.OpenRetainerMenu(retainerIdx);
+                    await _retainerControl.CloseRetainerMenu();
                     continue;
                 }
 
-                var item = _itemSheet.GetRow((uint)itemId);
-                if (item == null)
+                if (_settings.retainerLast > 1)
                 {
-                    PluginLog.Debug($"Failed to find item {_gameGui.HoveredItem} in item sheet!");
-                    continue;
+                    await _retainerControl.OpenRetainerMenu(retainerIdx);
+                    await _retainerControl.RetainerMenuOpenSellMenu();
                 }
 
-                var data = await _universalis.GetDCData(_gameGui.HoveredItem);
-                if (data == null || data.minimumPrice == 0)
+                for (var i = 0; i < _retainerControl.CurrentMarketItemCount; i++)
                 {
-                    continue;
+                    if (!_run)
+                    {
+                        _settings.OnScriptFailed("Stopped");
+                        return;
+                    }
+
+                    if (!_atkControl.IsRetainerMarketWindowFocused())
+                    {
+                        _settings.OnScriptFailed?.Invoke("market window not focused");
+                        return;
+                    }
+
+                    await _hidControl.CursorLeft();
+                    var itemHq = _gameGui.HoveredItem > 1000000;
+                    var itemId = itemHq ? _gameGui.HoveredItem - 1000000 : _gameGui.HoveredItem;
+                    if (itemId == 0)
+                    {
+                        PluginLog.Error("Listing skipped - item hover 0!");
+                        continue;
+                    }
+
+                    var item = _itemSheet.GetRow((uint)itemId);
+                    if (item == null)
+                    {
+                        PluginLog.Debug($"Failed to find item {_gameGui.HoveredItem} in item sheet!");
+                        continue;
+                    }
+
+                    await _hidControl.CursorConfirm();
+                    await _hidControl.CursorConfirm();
+                    
+                    var (newPrice, newPriceSource) = await _retainerSellControl.CalculateAndSetSellingPrice(item);
+                    _settings.OnPriceUpdated(item, newPrice, newPriceSource);
+
+                    if (!_atkControl.IsRetainerMarketWindowFocused())
+                    {
+                        _settings.OnScriptFailed?.Invoke("fail");
+                        return;
+                    }
+
+                    await _hidControl.CursorDown();
                 }
 
-                await _hidControl.CursorConfirm();
-                await _hidControl.CursorConfirm();
-                if (!_atkControl.IsRetainerAdjustPriceWindowFocused())
+                if (!_run)
                 {
-                    _settings.OnScriptFailed?.Invoke("fail");
+                    _settings.OnScriptFailed("Stopped");
                     return;
                 }
 
-                await _hidControl.CursorUp();
-
-                await _retainerSellControl.WaitForOfferingsThrottle();
-                await _hidControl.CursorConfirm();
-                var offeringsData = await _retainerSellControl.WaitForCurrentOfferings();
-                if (!_atkControl.IsRetainerOfferingsWindowFocused())
+                if (_settings.retainerLast > 1)
                 {
-                    _settings.OnScriptFailed?.Invoke("fail");
-                    return;
-                }
-
-                await _hidControl.CursorCancel();
-                if (!_atkControl.IsRetainerAdjustPriceWindowFocused())
-                {
-                    _settings.OnScriptFailed?.Invoke("fail");
-                    return;
-                }
-
-                await _hidControl.CursorDown();
-                await _hidControl.CursorDown();
-                await _hidControl.CursorDown();
-
-                var newPrice = (itemHq ? offeringsData.minimumPriceHQ : offeringsData.minimumPriceNQ) - 1;
-                var currentPrice = _retainerSellControl.GetAskingPrice();
-                var priceSource = "world min";
-
-                if (_settings.useCrossworld)
-                {
-                    _pricingLib.CalculatePrice(
-                        newPrice,
-                        (long)data.minimumPrice,
-                        (long)data.averagePrice,
-                        _settings.minimumFraction,
-                        out newPrice,
-                        out priceSource
-                    );
-                }
-
-                if (newPrice < currentPrice)
-                {
-                    _retainerSellControl.SetAskingPrice(newPrice);
-                    _settings.OnPriceUpdated?.Invoke(item, newPrice, (long)data.averagePrice, priceSource);
-                }
-
-                await _hidControl.CursorConfirm();
-                if (!_atkControl.IsRetainerMarketWindowFocused())
-                {
-                    _settings.OnScriptFailed?.Invoke("fail");
-                    return;
+                    await _retainerControl.RetainerMenuCloseSellMenu();
+                    await _retainerControl.CloseRetainerMenu();
                 }
             }
 
